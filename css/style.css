@@ -1,0 +1,131 @@
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    text-decoration: none;
+    text-align: center;
+    color: rgb(254, 248, 255);
+    font-family: 'Times New Roman', Times, serif;
+    text-shadow: 0 0 5px #6010bb;
+}
+
+html, body {
+    min-height: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, #120129, #000000);
+    background-repeat: no-repeat;
+}
+
+
+.page-header {
+    font-size: 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+}
+
+.first-section{
+    margin-top: 20rem;
+}
+
+.text-editor-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.text-editor {
+    width: min(62vw, 820px);
+    height: 56px;
+    padding: 12px 18px;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+    text-align: left;
+    overflow: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    resize: none;
+    box-sizing: border-box;
+
+    border: 1px solid #4117d9;
+    border-radius: 14px;
+    background: rgba(28, 6, 54, 0.9);
+    color: rgb(254, 248, 255);
+    box-shadow: 0 0 0 1px rgba(105, 35, 255, 0.8), 0 0 5px rgba(116, 24, 255, 0.9);
+    font-size: 1.7rem;
+    line-height: 1.3;
+    text-shadow: 0px 0px 0px;
+    font-family: 'Courier New', Courier, monospace;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.text-editor::-webkit-scrollbar {
+    display: none;
+}
+
+.text-editor:focus {
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(156, 92, 255, 0.9), 0 0 25px rgba(121, 59, 219, 1);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.text-editor::selection {
+    background-color: rgba(136, 74, 255, 0.8);
+}
+
+.style-button{
+    padding: 1.2rem 2.5rem;
+    margin: 1.2rem;
+    border: 2.5px solid #2f0b69;
+    border-radius: 13px;
+    background-color: #4a0d836c;
+    color: rgb(254, 248, 255);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+}
+
+.style-button:hover {
+     box-shadow: 0 0 0 1px rgba(115, 12, 233, 0.733), 0 0 25px rgba(115, 59, 219, 0.63);
+     transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+}
+
+.copy-button {
+    padding: 1.2rem 2.5rem;
+    margin: 1.2rem;
+    border: 2.5px solid #133173;
+    border-radius: 13px;
+    background-color: rgba(19, 35, 89);
+    color: rgb(254, 248, 255);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+}
+
+.copy-button:hover {
+     box-shadow: 0 0 18px #1a7bbc;
+     transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+}
+
+.page-footer {
+    margin-top: auto;
+    padding: 1rem 0;
+}
