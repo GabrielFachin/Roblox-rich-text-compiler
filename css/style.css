@@ -210,32 +210,117 @@ main {
     padding: 0;
 }
 
-.aside-top-right,
-.aside-bottom-right,
-.aside-left-full {
+.aside-right {
     position: fixed;
+    top: max(20px, calc((100vh - 1080px) / 2 + 20px));
+    right: max(20px, calc((100vw - 1920px) / 2 + 20px));
     width: clamp(180px, 18vw, 220px);
     min-width: 180px;
     max-width: 220px;
+    height: min(1080px, calc(100vh - 40px));
     max-height: 1080px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+    overflow: visible;
 }
 
 .aside-top-right {
-    top: max(20px, calc((100vh - 1080px) / 2 + 20px));
-    right: max(20px, calc((100vw - 1920px) / 2 + 20px));
-}
 
-.aside-left-full {
-    top: max(20px, calc((100vh - 1080px) / 2 + 20px));
-    left: max(20px, calc((100vw - 1920px) / 2 + 20px));
-    bottom: max(20px, calc((100vh - 1080px) / 2 + 20px));
-    overflow-y: auto;
-    max-height: 1080px;
+    --offset-x: -90px; /* horizontal offset from anchor — positive moves right */
+    --offset-y: 0px; /* vertical offset from anchor — positive moves down  */
+    --box-w: clamp(220px, 500vw, 310px); /* preferred width */
+    --box-h: 300px; /* preferred height */
+
+    min-height: 120px;
+    width: var(--box-w);
+    height: var(--box-h);
+    /* explicit open-state transform includes the horizontal offset so closing only changes vertical scale */
+    transform: translateX(var(--offset-x)) translateY(var(--offset-y)) scaleY(1);
+    transform-origin: top center;
 }
 
 .aside-bottom-right {
-    right: max(20px, calc((100vw - 1920px) / 2 + 20px));
+
+    --offset-x: -200px; /* horizontal offset from anchor — positive moves right */
+    --offset-y: 0px; /* vertical offset from anchor — positive moves down  */
+    --box-w: clamp(200px, 500vw, 400px); /* preferred width */
+    --box-h: auto; /* preferred height*/
+
+    min-height: 140px;
+    width: var(--box-w);
+    height: var(--box-h);
+    /* explicit open-state transform includes horizontal offset so closing can keep same X */
+    transform: translateX(var(--offset-x)) translateY(var(--offset-y)) scaleX(1);
+    transform-origin: right center;
+}
+
+.aside-left-full {
+    position: fixed;
+    top: max(20px, calc((100vh - 1080px) / 2 + 20px));
+    left: max(20px, calc((100vw - 1920px) / 2 + 20px));
     bottom: max(20px, calc((100vh - 1080px) / 2 + 20px));
+    width: clamp(180px, 18vw, 220px);
+    min-width: 180px;
+    max-width: 220px;
+    overflow-y: auto;
+    max-height: 1080px;
+    /* ensure a stable transform baseline so scaleX transitions animate predictably */
+    transform: scaleX(1);
+    transform-origin: left center;
+}
+
+/* Animation + toggle states for menu panels */
+.aside-left-full,
+.aside-top-right,
+.aside-bottom-right {
+    transition: transform 320ms cubic-bezier(.2,.9,.3,1), opacity 220ms ease;
+    will-change: transform, opacity;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Closed states (use CSS variables on each panel to tweak) */
+.aside-left-full.menu-closed {
+    transform-origin: left center;
+    transform: scaleX(0.02);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.aside-top-right.menu-closed {
+    /* collapse vertically toward the top; use an aggressive scale so it visually reaches ~1px */
+    transform-origin: top center;
+    /* keep the horizontal offset while shifting up slightly and collapsing vertically */
+    transform: translateX(var(--offset-x)) translateY(calc(var(--offset-y) - 8px)) scaleY(0.01);
+    opacity: 0;
+    pointer-events: none;
+    /* remain in layout but occupy minimal vertical space so .aside-bottom-right stays anchored */
+    height: 1px !important;
+    min-height: 1px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    overflow: hidden;
+}
+
+.aside-bottom-right.menu-closed {
+    transform-origin: right center;
+    /* keep vertical placement but push right a bit while collapsing horizontally */
+    transform: translateX(calc(var(--offset-x) + 12px)) translateY(var(--offset-y)) scaleX(0.02);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Ensure mobile stacking ignores transforms so the stack is clean */
+@media (max-width: 1100px) {
+    .aside-left-full.menu-closed,
+    .aside-top-right.menu-closed,
+    .aside-bottom-right.menu-closed {
+        transform: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
 }
 
 .aside-left {
@@ -260,6 +345,16 @@ main {
     justify-content: flex-start;
 }
 
+/* Ensure aside boxes respect their per-box CSS variables
+   Use the `--box-w` and `--box-h` placeholders declared on each aside-* element. */
+.aside-top-right.box,
+.aside-bottom-right.box {
+    width: var(--box-w);
+    height: var(--box-h);
+    min-width: 0;
+    max-width: none;
+}
+
 @media (max-width: 1100px) {
     .wrapper {
         display: block;
@@ -272,6 +367,18 @@ main {
         min-width: 0;
         max-width: 420px;
         margin: 2rem auto 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .aside-right {
+        position: static;
+        width: min(100%, 420px);
+        min-width: 0;
+        max-width: 420px;
+        margin: 0;
+        gap: 1rem;
     }
 
     .aside-top-right,
@@ -281,6 +388,17 @@ main {
         width: min(100%, 420px);
         min-width: 0;
         max-width: 420px;
+    }
+
+    .aside-right {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    .aside-left-full,
+    .aside-bottom-right {
+        margin: 0;
     }
 
     .aside-left {
