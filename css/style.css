@@ -1,3 +1,4 @@
+/*-------------Geral--------------- */
 * {
     padding: 0;
     margin: 0;
@@ -28,6 +29,7 @@ main {
     margin: 0 auto;
 }
 
+/*-------------Header--------------- */
 .page-header {
     font-size: 1.2rem;
     margin-top: 2rem;
@@ -42,6 +44,7 @@ main {
     gap: 1rem;
 }
 
+/*-------------Editor--------------- */
 .text-editor-title {
     font-size: 2.1rem;
     margin-bottom: 0.5rem;
@@ -60,7 +63,7 @@ main {
     height: 48px;
     padding: 10px 14px;
     margin-top: 0.5rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.7rem;
     text-align: left;
     overflow: hidden;
     scrollbar-width: none;
@@ -95,12 +98,35 @@ main {
     background-color: rgba(136, 74, 255, 0.8);
 }
 
+
+.preview-text {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.2rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: rgb(126, 126, 126);
+    text-shadow: 0px 0px 0px;
+}
+
+/*-------------Display--------------- */
+.hidden-display-view {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.visible-display-view {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+
+/*-------------Botões--------------- */
 .button-row {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.75rem 2rem;
-    margin-top: 0.5rem;
+    gap: 0rem 2rem;
+    margin-top: 0rem;
 }
 
 .style-button {
@@ -136,11 +162,12 @@ main {
 }
 
 .copy-button:hover {
-    box-shadow: 0 0 18px #24638d;
+    box-shadow: 0 0 0 1px rgba(33, 127, 255, 0.8), 0 0 25px rgba(52, 118, 255, 0.6);
     transition: background-color 0.3s ease, box-shadow 0.3s ease;
 
 }
 
+/*-------------Footer--------------- */
 .page-footer {
     margin-top: auto;
     padding: 1.5rem 0 1rem;

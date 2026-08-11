@@ -12,15 +12,18 @@
 <body>
     <main>
         <header class="page-header">
-            <h1>NULLSCAPE LOBBY STYLIZER</h1>
         </header>
         <section class="first-section">
             <div class="text-editor-container">
 
-                <h1 class="text-editor-title">Enter your lobby name.</h1>
-                <textarea class="text-editor" id="editor" placeholder="Your lobby name" spellcheck="false"
+                <h1 class="text-editor-title">Name your lobby.</h1>
+                <textarea class="text-editor" id="editor" placeholder="@Mart's lobby" spellcheck="false"
                     autocomplete="off" autocorrect="off" autocapitalize="off" maxlength="35"
                     overflow="hidden"></textarea>
+                <div id="display-view" class="hidden-display-view">
+                    <p class="preview-text">( Will display as: <span id="display-name" class="preview-text"></span> )
+                    </p>
+                </div>
             </div>
             <div class="button-row">
                 <button class="copy-button" id="copy-button">
@@ -40,6 +43,17 @@
                 </button>
             </div>
         </section>
+        <div>
+
+        </div>
+
+        <div>
+
+        </div>
+
+        <div>
+
+        </div>
         <footer class="page-footer">
             <small></small>
             <p>Created by GabyDev! (AKA dogezineo/foxybryt)</p>
