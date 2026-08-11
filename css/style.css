@@ -239,7 +239,49 @@ main {
     /* explicit open-state transform includes the horizontal offset so closing only changes vertical scale */
     transform: translateX(var(--offset-x)) translateY(var(--offset-y)) scaleY(1);
     transform-origin: top center;
+    padding: 6px; /* small gap so picker nearly fills the box */
 }
+
+/* Custom color picker styles */
+.color-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+}
+
+.color-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* fill available area within the aside box (header/footer occupy some space) */
+    height: calc(100% - 48px);
+}
+
+.picker-main { display:flex; gap:8px; align-items:stretch; flex:1 1 auto; }
+
+.sv-wrap { flex:1 1 auto; min-height: 120px; }
+.sv { width: 100%; height: 100%; border-radius: 8px; position: relative; background: red; cursor: crosshair; }
+.hue-wrap { width: 36px; flex: 0 0 36px; }
+.hue { width:100%; height:100%; border-radius:8px; background: linear-gradient(to top, red, #ff0, #0f0, #0ff, #00f, #f0f, red); position: relative; cursor: ns-resize; }
+
+.sv-wrap { width: 100%; height: 140px; position: relative; }
+.sv { width: 100%; height: 100%; border-radius: 8px; position: relative; cursor: crosshair; background-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0)), linear-gradient(to right, rgba(255,255,255,1), rgba(255,255,255,0)), hsl(var(--h,320),100%,50%); background-blend-mode: normal; }
+.sv-cursor { position: absolute; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.35); transform: translate(-7px, -7px); pointer-events: none; }
+
+.hue-wrap { height: 140px; width: 36px; position: relative; }
+.hue { width: 100%; height: 100%; border-radius: 8px; background: linear-gradient(to top, red, #ff0, #0f0, #0ff, #00f, #f0f, red); position: relative; cursor: ns-resize; }
+.hue-cursor { position: absolute; left: -4px; right: -4px; height: 6px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.3); transform: translateY(-3px); pointer-events: none; }
+
+.swatches { margin-top: 6px; display:flex; gap:8px; flex-wrap:wrap; }
+.swatch { width: 28px; height: 28px; border-radius: 6px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; }
+
+.color-footer { display:flex; gap:8px; align-items:center; margin-top:8px; }
+.color-hex-input { order: 1; flex:1; padding:6px 8px; border-radius:8px; border:1px solid rgba(105,35,255,0.25); background: rgba(0,0,0,0.12); color:#fff; font-family:monospace; }
+.color-copy-btn { order: 2; padding:6px 8px; border-radius:8px; border:1px solid rgba(105,35,255,0.35); background:transparent; color:#fff; cursor:pointer; }
+.color-circle { order: 3; width:34px; height:34px; border-radius:50%; border:2px solid #8b5cff; background:#ff33cc; cursor:pointer; box-shadow: 0 0 0 4px rgba(139,92,255,0.06); margin-left:6px; }
+
+.color-value { font-family: monospace; font-size: 0.88rem; color: #eee; }
 
 .aside-bottom-right {
 
@@ -251,7 +293,6 @@ main {
     min-height: 140px;
     width: var(--box-w);
     height: var(--box-h);
-    /* explicit open-state transform includes horizontal offset so closing can keep same X */
     transform: translateX(var(--offset-x)) translateY(var(--offset-y)) scaleX(1);
     transform-origin: right center;
 }
@@ -266,12 +307,10 @@ main {
     max-width: 220px;
     overflow-y: auto;
     max-height: 1080px;
-    /* ensure a stable transform baseline so scaleX transitions animate predictably */
     transform: scaleX(1);
     transform-origin: left center;
 }
 
-/* Animation + toggle states for menu panels */
 .aside-left-full,
 .aside-top-right,
 .aside-bottom-right {
@@ -281,7 +320,6 @@ main {
     pointer-events: auto;
 }
 
-/* Closed states (use CSS variables on each panel to tweak) */
 .aside-left-full.menu-closed {
     transform-origin: left center;
     transform: scaleX(0.02);
@@ -290,13 +328,10 @@ main {
 }
 
 .aside-top-right.menu-closed {
-    /* collapse vertically toward the top; use an aggressive scale so it visually reaches ~1px */
     transform-origin: top center;
-    /* keep the horizontal offset while shifting up slightly and collapsing vertically */
     transform: translateX(var(--offset-x)) translateY(calc(var(--offset-y) - 8px)) scaleY(0.01);
     opacity: 0;
     pointer-events: none;
-    /* remain in layout but occupy minimal vertical space so .aside-bottom-right stays anchored */
     height: 1px !important;
     min-height: 1px !important;
     padding-top: 0 !important;
