@@ -332,7 +332,8 @@ main {
     flex: 1 1 auto;
     padding: 6px 8px;
     border-radius: 8px;
-    border: 1px solid rgba(105, 35, 255, 0.25);
+    border: 1px solid rgba(161, 89, 202, 0.651);
+    box-shadow: 0 0 0 1px rgba(105, 35, 255, 0.8), 0 0 5px rgba(116, 24, 255, 0.9);
     background: rgba(0, 0, 0, 0.12);
     color: #fff;
     font-family: monospace;
