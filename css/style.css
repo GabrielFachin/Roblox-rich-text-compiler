@@ -226,26 +226,42 @@ main {
     overflow: visible;
 }
 
-.aside-top-right {
-
+.color-panel-wrap {
+    /* Owns positioning + open/close animation for the whole color-picker unit
+       (box + the circle/hex row that now lives outside the box). Keeping this
+       on one ancestor means both children collapse/open together instead of
+       needing two separate animated elements to stay in sync. */
     --offset-x: -90px; /* horizontal offset from anchor — positive moves right */
     --offset-y: 0px; /* vertical offset from anchor — positive moves down  */
     --box-w: clamp(220px, 500vw, 310px); /* preferred width */
-    --box-h: 300px; /* preferred height */
+    --box-h: 300px; /* preferred height of the picker box itself */
 
-    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* the "small gap" between the box and the circle/hex row */
     width: var(--box-w);
-    height: var(--box-h);
     /* explicit open-state transform includes the horizontal offset so closing only changes vertical scale */
     transform: translateX(var(--offset-x)) translateY(var(--offset-y)) scaleY(1);
     transform-origin: top center;
+}
+
+.aside-top-right {
+    min-height: 120px;
+    height: var(--box-h);
     padding: 6px; /* small gap so picker nearly fills the box */
+    /* .box sets display:flex with align-items:center (meant for its other
+       use as a single centered line of placeholder text, e.g. "Style").
+       This box stacks a title above the picker and needs the picker to
+       stretch full-width, so it needs its own flex-direction + align-items —
+       declared once, further down, in the higher-specificity
+       `.aside-top-right.box` rule (see the comment there for why plain
+       `.aside-top-right` isn't enough on its own). */
 }
 
 /* Custom color picker styles */
 .color-header {
+    flex: 0 0 auto;
     display: flex;
-    justify-content: space-between;
     align-items: center;
     margin-bottom: 0.6rem;
 }
@@ -254,32 +270,73 @@ main {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    /* fill available area within the aside box (header/footer occupy some space) */
-    height: calc(100% - 48px);
+    /* Picker grows to fill whatever the header doesn't use — in practice
+       ~90% of the box, since the header is a single line of text. This
+       adapts automatically if --box-h or the header's font size change,
+       instead of assuming a fixed 48px header like the old calc() did. */
+    flex: 1 1 auto;
+    min-height: 0; /* let sv/hue shrink to fit instead of overflowing the box */
 }
 
-.picker-main { display:flex; gap:8px; align-items:stretch; flex:1 1 auto; }
+.picker-main { display:flex; gap:8px; align-items:stretch; flex:1 1 auto; min-height: 0; }
 
-.sv-wrap { flex:1 1 auto; min-height: 120px; }
-.sv { width: 100%; height: 100%; border-radius: 8px; position: relative; background: red; cursor: crosshair; }
-.hue-wrap { width: 36px; flex: 0 0 36px; }
-.hue { width:100%; height:100%; border-radius:8px; background: linear-gradient(to top, red, #ff0, #0f0, #0ff, #00f, #f0f, red); position: relative; cursor: ns-resize; }
-
-.sv-wrap { width: 100%; height: 140px; position: relative; }
-.sv { width: 100%; height: 100%; border-radius: 8px; position: relative; cursor: crosshair; background-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0)), linear-gradient(to right, rgba(255,255,255,1), rgba(255,255,255,0)), hsl(var(--h,320),100%,50%); background-blend-mode: normal; }
+.sv-wrap { flex: 1 1 auto; position: relative; min-height: 80px; min-width: 0; }
+.sv {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    position: relative;
+    cursor: crosshair;
+    /* Classic SV square: saturation gradient (white→transparent, left to
+       right) layered over a value gradient (black→transparent, bottom to
+       top) over a solid hue backdrop.
+       This MUST be the `background` shorthand, not `background-image` —
+       a bare color like hsl(...) is only legal as the trailing layer of
+       the `background` shorthand. Putting it inside `background-image`
+       is a CSS parse error, and per spec an invalid item in a
+       comma-separated value list invalidates the *entire* declaration,
+       not just that layer. That's what was silently happening before:
+       none of the three layers ever rendered, and the square fell back
+       to flat red from a separate (also stale) rule — it never reacted
+       to hue at all, which is why it read as "just the hue bar working". */
+    background:
+        linear-gradient(to top, #000, transparent),
+        linear-gradient(to right, #fff, transparent),
+        hsl(var(--h, 320), 100%, 50%);
+}
 .sv-cursor { position: absolute; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.35); transform: translate(-7px, -7px); pointer-events: none; }
 
-.hue-wrap { height: 140px; width: 36px; position: relative; }
+.hue-wrap { flex: 0 0 36px; width: 36px; position: relative; }
 .hue { width: 100%; height: 100%; border-radius: 8px; background: linear-gradient(to top, red, #ff0, #0f0, #0ff, #00f, #f0f, red); position: relative; cursor: ns-resize; }
 .hue-cursor { position: absolute; left: -4px; right: -4px; height: 6px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.3); transform: translateY(-3px); pointer-events: none; }
 
 .swatches { margin-top: 6px; display:flex; gap:8px; flex-wrap:wrap; }
 .swatch { width: 28px; height: 28px; border-radius: 6px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; }
 
-.color-footer { display:flex; gap:8px; align-items:center; margin-top:8px; }
-.color-hex-input { order: 1; flex:1; padding:6px 8px; border-radius:8px; border:1px solid rgba(105,35,255,0.25); background: rgba(0,0,0,0.12); color:#fff; font-family:monospace; }
-.color-copy-btn { order: 2; padding:6px 8px; border-radius:8px; border:1px solid rgba(105,35,255,0.35); background:transparent; color:#fff; cursor:pointer; }
-.color-circle { order: 3; width:34px; height:34px; border-radius:50%; border:2px solid #8b5cff; background:#ff33cc; cursor:pointer; box-shadow: 0 0 0 4px rgba(139,92,255,0.06); margin-left:6px; }
+/* Lives outside .aside-top-right now (see .color-panel-wrap), as its own
+   row: [current-color circle] [hex input]. No explicit width/order needed —
+   it's a flex item of .color-panel-wrap, which stretches it to the box's
+   width by default. */
+.color-footer { display:flex; gap:10px; align-items:center; }
+.color-circle {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #8b5cff; /* the requested purple outline */
+    cursor: pointer;
+    box-shadow: 0 0 0 4px rgba(139, 92, 255, 0.06);
+    /* background-color is set live from JS to mirror the picked color */
+}
+.color-hex-input {
+    flex: 1 1 auto;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(105, 35, 255, 0.25);
+    background: rgba(0, 0, 0, 0.12);
+    color: #fff;
+    font-family: monospace;
+}
 
 .color-value { font-family: monospace; font-size: 0.88rem; color: #eee; }
 
@@ -312,7 +369,7 @@ main {
 }
 
 .aside-left-full,
-.aside-top-right,
+.color-panel-wrap,
 .aside-bottom-right {
     transition: transform 320ms cubic-bezier(.2,.9,.3,1), opacity 220ms ease;
     will-change: transform, opacity;
@@ -327,15 +384,13 @@ main {
     pointer-events: none;
 }
 
-.aside-top-right.menu-closed {
+.color-panel-wrap.menu-closed {
     transform-origin: top center;
     transform: translateX(var(--offset-x)) translateY(calc(var(--offset-y) - 8px)) scaleY(0.01);
     opacity: 0;
     pointer-events: none;
     height: 1px !important;
     min-height: 1px !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
     overflow: hidden;
 }
 
@@ -350,7 +405,7 @@ main {
 /* Ensure mobile stacking ignores transforms so the stack is clean */
 @media (max-width: 1100px) {
     .aside-left-full.menu-closed,
-    .aside-top-right.menu-closed,
+    .color-panel-wrap.menu-closed,
     .aside-bottom-right.menu-closed {
         transform: none !important;
         opacity: 1 !important;
@@ -380,9 +435,20 @@ main {
     justify-content: flex-start;
 }
 
-/* Ensure aside boxes respect their per-box CSS variables
-   Use the `--box-w` and `--box-h` placeholders declared on each aside-* element. */
-.aside-top-right.box,
+/* Ensure aside boxes respect their per-box CSS variables.
+   .aside-top-right no longer declares --box-w/--box-h itself — it inherits
+   them from its ancestor .color-panel-wrap (CSS custom properties cascade
+   by default), so there's a single source of truth for that panel's size. */
+.aside-top-right.box {
+    width: 100%;
+    height: var(--box-h);
+    min-width: 0;
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
 .aside-bottom-right.box {
     width: var(--box-w);
     height: var(--box-h);
@@ -416,7 +482,7 @@ main {
         gap: 1rem;
     }
 
-    .aside-top-right,
+    .color-panel-wrap,
     .aside-left-full,
     .aside-bottom-right {
         position: static;

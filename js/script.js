@@ -35,7 +35,7 @@ copyButton.addEventListener("click", () => {
 document.addEventListener('DOMContentLoaded', () => {
     const mapping = [
         { buttonId: 'font-button', panelSelector: '.aside-left-full' },
-        { buttonId: 'color-button', panelSelector: '.aside-top-right' },
+        { buttonId: 'color-button', panelSelector: '.color-panel-wrap' },
         { buttonId: 'style-button', panelSelector: '.aside-bottom-right' }
     ];
 
@@ -51,9 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.setAttribute('aria-hidden', 'true');
 
         const tidy = () => {
-                // For the top-right panel we keep it in the layout (collapse to ~1px via CSS)
+                // For the color panel we keep it in the layout (collapse to ~1px via CSS)
                 if (panel.classList.contains('menu-closed')) {
-                    if (!panel.classList.contains('aside-top-right')) {
+                    if (!panel.classList.contains('color-panel-wrap')) {
                         panel.style.display = 'none';
                     } else {
                         // keep displayed so flex layout preserves bottom anchoring
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         p.classList.add('menu-closed');
         p.setAttribute('aria-hidden', 'true');
         // keep the top-right collapsed but present so the bottom panel remains anchored
-        if (p.classList && p.classList.contains('aside-top-right')) {
+        if (p.classList && p.classList.contains('color-panel-wrap')) {
             p.style.display = '';
         } else {
             p.style.display = 'none';
@@ -126,10 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const swatches = document.getElementById('swatches');
         const colorHexInput = document.getElementById('color-hex-input');
         const colorCircle = document.getElementById('color-circle');
-        const colorCopyBtn = document.getElementById('color-copy-btn');
         const topBox = document.querySelector('.aside-top-right');
 
-        if (!sv || !hue || !svCursor || !hueCursor || !hexDisplay) return;
+        // `hexDisplay` here used to reference an id that no longer (or never
+        // did) exist in the DOM. Reading an undeclared identifier throws a
+        // ReferenceError, which aborted this whole IIFE before a single
+        // listener got attached — that's why the picker looked completely
+        // dead. Guard against the elements this code actually touches instead.
+        if (!sv || !hue || !svCursor || !hueCursor || !colorHexInput) return;
 
         // color state (h in [0,360), s,v in [0,1])
         let H = 320, S = 0.6, V = 1;
@@ -243,38 +247,63 @@ document.addEventListener('DOMContentLoaded', () => {
             setFromHex(c);
         });
 
-        // wire footer controls
-        // wire footer controls (hex input, paste, copy, circle)
-        if (colorHexInput) {
-            colorHexInput.addEventListener('keydown', (e)=>{
-                if (e.key === 'Enter') {
-                    let v = colorHexInput.value.trim();
-                    if (!v.startsWith('#')) v = '#'+v;
-                    setFromHex(v);
-                }
-            });
-            colorHexInput.addEventListener('paste', (e)=>{
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                if (text) {
-                    let v = text.trim(); if (!v.startsWith('#')) v = '#'+v;
-                    setFromHex(v);
-                    e.preventDefault();
-                    colorHexInput.value = v;
-                }
-            });
+        // wire footer controls (hex input, paste, circle)
+        // There's no dedicated copy button anymore — the hex input is a
+        // plain, selectable text field, so Ctrl+C works on it directly.
+        // `normalizeHex`/`isValidHex`/`applyHex` are factored out so typing,
+        // pasting, and pressing Enter all go through the same validation
+        // logic instead of three slightly different copies of it (DRY).
+        function normalizeHex(raw) {
+            let v = (raw || '').trim();
+            if (v && !v.startsWith('#')) v = '#' + v;
+            return v;
         }
 
-        if (colorCopyBtn) {
-            colorCopyBtn.addEventListener('click', ()=>{
-                const v = (colorHexInput && colorHexInput.value) ? colorHexInput.value.trim() : '';
-                if (navigator.clipboard && v) navigator.clipboard.writeText(v).catch(()=>{});
+        function isValidHex(v) {
+            return /^#[0-9a-fA-F]{6}$/.test(v);
+        }
+
+        // Only commits the color when the hex is fully valid, so the swatch
+        // doesn't jump around while the user is still mid-keystroke (e.g.
+        // typing "#3" or "#3a" isn't a color yet).
+        function applyHex(raw) {
+            const v = normalizeHex(raw);
+            if (!isValidHex(v)) return false;
+            setFromHex(v);
+            return true;
+        }
+
+        if (colorHexInput) {
+            // Real-time: updates the picker as soon as a full 6-digit hex is typed.
+            colorHexInput.addEventListener('input', () => {
+                applyHex(colorHexInput.value);
+            });
+
+            // Enter still normalizes the field itself (adds a missing '#',
+            // trims whitespace) even though live updates already applied
+            // the color once it became valid.
+            colorHexInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const v = normalizeHex(colorHexInput.value);
+                    if (applyHex(v)) colorHexInput.value = v;
+                }
+            });
+
+            colorHexInput.addEventListener('paste', (e) => {
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                if (!text) return;
+                e.preventDefault();
+                const v = normalizeHex(text);
+                colorHexInput.value = v;
+                applyHex(v);
             });
         }
 
         if (colorCircle) {
-            colorCircle.addEventListener('click', ()=>{
+            // Clicking the swatch selects the hex text so Ctrl+C grabs it
+            // immediately, without needing a separate copy button.
+            colorCircle.addEventListener('click', () => {
                 if (colorHexInput) { colorHexInput.focus(); colorHexInput.select(); }
-                colorCircle.classList.toggle('color-circle-active');
             });
         }
 
@@ -283,5 +312,3 @@ document.addEventListener('DOMContentLoaded', () => {
         if (initial.startsWith('#')) setFromHex(initial);
     })();
 });
-
-

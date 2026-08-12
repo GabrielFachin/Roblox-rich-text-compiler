@@ -52,30 +52,31 @@
         </main>
         <aside class="aside">
             <div class="aside-right">
-                <div class="box aside-top-right">
-                    <div class="color-header">
-                        <span class="color-label">Color picker</span>
-                    </div>
-
-                    <div class="color-picker" id="color-picker">
-                        <div class="picker-main">
-                            <div class="sv-wrap">
-                                <div class="sv" id="sv">
-                                    <div class="sv-cursor" id="sv-cursor"></div>
-                                </div>
-                            </div>
-                            <div class="hue-wrap">
-                                <div class="hue" id="hue">
-                                    <div class="hue-cursor" id="hue-cursor"></div>
-                                </div>
-                            </div>
+                <div class="color-panel-wrap" id="color-panel-wrap">
+                    <div class="box aside-top-right">
+                        <div class="color-header">
+                            <span class="color-label">Color picker</span>
                         </div>
-                        <!-- swatches removed for now -->
+
+                        <div class="color-picker" id="color-picker">
+                            <div class="picker-main">
+                                <div class="sv-wrap">
+                                    <div class="sv" id="sv">
+                                        <div class="sv-cursor" id="sv-cursor"></div>
+                                    </div>
+                                </div>
+                                <div class="hue-wrap">
+                                    <div class="hue" id="hue">
+                                        <div class="hue-cursor" id="hue-cursor"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- swatches removed for now -->
+                        </div>
                     </div>
                     <div class="color-footer">
-                        <input id="color-hex-input" class="color-hex-input" type="text" maxlength="7" value="#ff33cc" aria-label="Hex color input">
-                        <button id="color-copy-btn" class="color-copy-btn" title="Copy hex">Copy</button>
-                        <button id="color-circle" class="color-circle" title="Color actions"></button>
+                        <button id="color-circle" class="color-circle" title="Current color — click to select hex" aria-label="Currently selected color"></button>
+                        <input id="color-hex-input" class="color-hex-input" type="text" maxlength="7" value="#ff33cc" aria-label="Hex color input" spellcheck="false" autocomplete="off">
                     </div>
                 </div>
                 <div class="box aside-bottom-right">Style</div>
