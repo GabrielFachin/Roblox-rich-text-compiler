@@ -56,6 +56,14 @@
                     <div class="box aside-top-right">
                         <div class="color-header">
                             <span class="color-label">Color picker</span>
+                            <button type="button" class="outline-toggle" id="outline-toggle" aria-pressed="false" title="Toggle text outline">
+                                <span class="outline-toggle-box">
+                                    <svg class="outline-toggle-check" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                        <path d="M3 8.5L6.5 12L13 4.5" />
+                                    </svg>
+                                </span>
+                                <span class="outline-toggle-label">Text outline</span>
+                            </button>
                         </div>
 
                         <div class="color-picker" id="color-picker">
@@ -78,7 +86,27 @@
                         <input id="color-hex-input" class="color-hex-input" type="text" maxlength="7" value="#ff33cc" aria-label="Hex color input" spellcheck="false" autocomplete="off">
                     </div>
                 </div>
-                <div class="box aside-bottom-right">Style</div>
+                <div class="box aside-bottom-right">
+                <div class="style-box-inner">
+                    <div class="style-box-header">
+                        <span class="style-box-label">Style</span>
+                    </div>
+                    <div class="style-options">
+                        <button type="button" class="style-option" id="style-bold" data-style="bold"
+                            aria-pressed="false" title="Bold">
+                            <span class="style-option-letter style-option-letter--bold">B</span>
+                        </button>
+                        <button type="button" class="style-option" id="style-italic" data-style="italic"
+                            aria-pressed="false" title="Italic">
+                            <span class="style-option-letter style-option-letter--italic">I</span>
+                        </button>
+                        <button type="button" class="style-option" id="style-underline" data-style="underline"
+                            aria-pressed="false" title="Underline">
+                            <span class="style-option-letter style-option-letter--underline">U</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
             </div>
             <div class="box aside-left-full">Fonts</div>
         </aside>
