@@ -31,6 +31,94 @@ copyButton.addEventListener("click", () => {
     }
 });
 
+// Roblox font families available for the rich-text compiler. `asset` is the
+// rbxasset:// path used when generating the actual Roblox rich text tags.
+// `previewFamily` is the closest web font used purely so the button shows
+// what the font looks like in the browser (Roblox fonts aren't loadable
+// on the web, so a handful fall back to a similar system/Google font).
+const FONT_LIST = [
+    { name: 'Accanthis ADF Std', asset: 'rbxasset://fonts/families/AccanthisADFStd.json', previewFamily: "'Times New Roman', Times, serif" },
+    { name: 'Amatic SC', asset: 'rbxasset://fonts/families/AmaticSC.json', previewFamily: "'Amatic SC', cursive" },
+    { name: 'Arimo', asset: 'rbxasset://fonts/families/Arimo.json', previewFamily: "'Arimo', sans-serif" },
+    { name: 'Balthazar', asset: 'rbxasset://fonts/families/Balthazar.json', previewFamily: "'Balthazar', serif" },
+    { name: 'Bangers', asset: 'rbxasset://fonts/families/Bangers.json', previewFamily: "'Bangers', cursive" },
+    { name: 'Builder Extended', asset: 'rbxasset://fonts/families/BuilderExtended.json', previewFamily: "'Oswald', sans-serif" },
+    { name: 'Builder Mono', asset: 'rbxasset://fonts/families/BuilderMono.json', previewFamily: "'Roboto Mono', monospace" },
+    { name: 'Builder Sans', asset: 'rbxasset://fonts/families/BuilderSans.json', previewFamily: "'Arimo', sans-serif" },
+    { name: 'Comic Neue Angular', asset: 'rbxasset://fonts/families/ComicNeueAngular.json', previewFamily: "'Comic Neue', cursive" },
+    { name: 'Creepster', asset: 'rbxasset://fonts/families/Creepster.json', previewFamily: "'Creepster', cursive" },
+    { name: 'Denk One', asset: 'rbxasset://fonts/families/DenkOne.json', previewFamily: "'Oswald', sans-serif" },
+    { name: 'Fondamento', asset: 'rbxasset://fonts/families/Fondamento.json', previewFamily: "'Fondamento', cursive" },
+    { name: 'Fredoka One', asset: 'rbxasset://fonts/families/FredokaOne.json', previewFamily: "'Fredoka', sans-serif" },
+    { name: 'Grenze Gotisch', asset: 'rbxasset://fonts/families/GrenzeGotisch.json', previewFamily: "'Grenze Gotisch', serif" },
+    { name: 'Guru', asset: 'rbxasset://fonts/families/Guru.json', previewFamily: "'Nunito', sans-serif" },
+    { name: 'Highway Gothic', asset: 'rbxasset://fonts/families/HighwayGothic.json', previewFamily: "'Roboto Condensed', sans-serif" },
+    { name: 'Inconsolata', asset: 'rbxasset://fonts/families/Inconsolata.json', previewFamily: "'Inconsolata', monospace" },
+    { name: 'Indie Flower', asset: 'rbxasset://fonts/families/IndieFlower.json', previewFamily: "'Indie Flower', cursive" },
+    { name: 'Josefin Sans', asset: 'rbxasset://fonts/families/JosefinSans.json', previewFamily: "'Josefin Sans', sans-serif" },
+    { name: 'Jura', asset: 'rbxasset://fonts/families/Jura.json', previewFamily: "'Jura', sans-serif" },
+    { name: 'Kalam', asset: 'rbxasset://fonts/families/Kalam.json', previewFamily: "'Kalam', cursive" },
+    { name: 'Luckiest Guy', asset: 'rbxasset://fonts/families/LuckiestGuy.json', previewFamily: "'Luckiest Guy', cursive" },
+    { name: 'Merriweather', asset: 'rbxasset://fonts/families/Merriweather.json', previewFamily: "'Merriweather', serif" },
+    { name: 'Michroma', asset: 'rbxasset://fonts/families/Michroma.json', previewFamily: "'Michroma', sans-serif" },
+    { name: 'Montserrat', asset: 'rbxasset://fonts/families/Montserrat.json', previewFamily: "'Montserrat', sans-serif" },
+    { name: 'Nunito', asset: 'rbxasset://fonts/families/Nunito.json', previewFamily: "'Nunito', sans-serif" },
+    { name: 'Oswald', asset: 'rbxasset://fonts/families/Oswald.json', previewFamily: "'Oswald', sans-serif" },
+    { name: 'Patrick Hand', asset: 'rbxasset://fonts/families/PatrickHand.json', previewFamily: "'Patrick Hand', cursive" },
+    { name: 'Permanent Marker', asset: 'rbxasset://fonts/families/PermanentMarker.json', previewFamily: "'Permanent Marker', cursive" },
+    { name: 'Press Start 2P', asset: 'rbxasset://fonts/families/PressStart2P.json', previewFamily: "'Press Start 2P', monospace" },
+    { name: 'Roboto', asset: 'rbxasset://fonts/families/Roboto.json', previewFamily: "'Roboto', sans-serif" },
+    { name: 'Roboto Condensed', asset: 'rbxasset://fonts/families/RobotoCondensed.json', previewFamily: "'Roboto Condensed', sans-serif" },
+    { name: 'Roboto Mono', asset: 'rbxasset://fonts/families/RobotoMono.json', previewFamily: "'Roboto Mono', monospace" },
+    { name: 'Roman Antique', asset: 'rbxasset://fonts/families/RomanAntique.json', previewFamily: "'Times New Roman', Times, serif" },
+    { name: 'Sarpanch', asset: 'rbxasset://fonts/families/Sarpanch.json', previewFamily: "'Sarpanch', sans-serif" },
+    { name: 'Source Sans Pro', asset: 'rbxasset://fonts/families/SourceSansPro.json', previewFamily: "'Source Sans 3', sans-serif" },
+    { name: 'Special Elite', asset: 'rbxasset://fonts/families/SpecialElite.json', previewFamily: "'Special Elite', cursive" },
+    { name: 'Titillium Web', asset: 'rbxasset://fonts/families/TitilliumWeb.json', previewFamily: "'Titillium Web', sans-serif" },
+    { name: 'Ubuntu', asset: 'rbxasset://fonts/families/Ubuntu.json', previewFamily: "'Ubuntu', sans-serif" },
+    { name: 'Zekton', asset: 'rbxasset://fonts/families/Zekton.json', previewFamily: "'Michroma', sans-serif" }
+];
+
+// Builds the scrollable font list inside the "Fonts" side box. Buttons are
+// purely visual/clickable for now (toggle a selected state) — no rich text
+// generation logic wired in yet, that comes later.
+(function initFontList() {
+    const fontList = document.getElementById('font-list');
+    if (!fontList) return;
+
+    FONT_LIST.forEach((font) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'font-option';
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('data-font-name', font.name);
+        btn.setAttribute('data-font-asset', font.asset);
+        btn.title = font.name;
+
+        const label = document.createElement('span');
+        label.className = 'font-option-name';
+        label.textContent = font.name;
+
+        const preview = document.createElement('span');
+        preview.className = 'font-option-preview';
+        preview.style.fontFamily = font.previewFamily;
+        preview.textContent = 'AaBbCc 123';
+
+        btn.appendChild(label);
+        btn.appendChild(preview);
+
+        btn.addEventListener('click', () => {
+            const isOn = btn.getAttribute('aria-pressed') === 'true';
+            fontList.querySelectorAll('.font-option[aria-pressed="true"]').forEach((other) => {
+                if (other !== btn) other.setAttribute('aria-pressed', 'false');
+            });
+            btn.setAttribute('aria-pressed', String(!isOn));
+        });
+
+        fontList.appendChild(btn);
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     const mapping = [
         { buttonId: 'font-button', panelSelector: '.aside-left-full' },
