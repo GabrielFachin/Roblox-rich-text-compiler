@@ -15,6 +15,59 @@ let selectedIndices = [];
 // the user presses R to reset).
 let selectionLocked = false;
 
+// Per-character formatting. Index i here describes lobbyTitle.value[i].
+// Any property left undefined/false means "use the default look".
+// Shape: { color: '#rrggbb'|null, outline: bool, outlineColor: '#rrggbb'|null,
+//          font: string|null (font-family CSS value), bold, italic, underline }
+let charStyles = [];
+
+function getStyle(i) {
+    return charStyles[i] || null;
+}
+
+function ensureStyle(i) {
+    if (!charStyles[i]) charStyles[i] = {};
+    return charStyles[i];
+}
+
+// Keeps charStyles aligned with the text whenever it's edited directly
+// (typing, pasting, deleting). Called from the "input" handler with the
+// text as it was immediately before this input event, so we can diff
+// lengths and figure out where the change happened relative to the
+// caret, then shift/insert/remove style entries to match.
+let previousValue = "";
+function reconcileStylesWithEdit(newValue) {
+    const oldValue = previousValue;
+    if (newValue === oldValue) return;
+
+    // Find the shared prefix/suffix between old and new text to localize
+    // exactly what changed, so styles on untouched characters survive.
+    let prefix = 0;
+    const maxPrefix = Math.min(oldValue.length, newValue.length);
+    while (prefix < maxPrefix && oldValue[prefix] === newValue[prefix]) prefix++;
+
+    let oldSuffix = oldValue.length;
+    let newSuffix = newValue.length;
+    while (
+        oldSuffix > prefix &&
+        newSuffix > prefix &&
+        oldValue[oldSuffix - 1] === newValue[newSuffix - 1]
+    ) {
+        oldSuffix--;
+        newSuffix--;
+    }
+
+    const removedCount = oldSuffix - prefix;
+    const insertedCount = newSuffix - prefix;
+
+    const newStyles = charStyles.slice(0, prefix);
+    for (let i = 0; i < insertedCount; i++) newStyles.push(null);
+    newStyles.push(...charStyles.slice(oldSuffix));
+    charStyles = newStyles;
+
+    void removedCount;
+}
+
 function refreshDisplayView() {
     if (lobbyTitle.value.trim() === "") {
         displayView.classList.remove("visible-display-view");
@@ -23,15 +76,92 @@ function refreshDisplayView() {
     }
 }
 
+function styleClasses(style) {
+    if (!style) return "";
+    const classes = ["styled-char"];
+    if (style.outline) classes.push("styled-char--outline");
+    if (style.bold) classes.push("styled-char--bold");
+    if (style.italic) classes.push("styled-char--italic");
+    if (style.underline) classes.push("styled-char--underline");
+    return classes.join(" ");
+}
+
+function styleInlineCss(style) {
+    if (!style) return "";
+    const rules = [];
+    if (style.color) rules.push(`color:${style.color}`);
+    if (style.font) rules.push(`font-family:${style.font}`);
+    if (style.outline) {
+        const oc = style.outlineColor || "#000000";
+        rules.push(`-webkit-text-stroke-color:${oc}`, `text-stroke-color:${oc}`);
+    }
+    return rules.join(";");
+}
+
+// Renders `text` as a string of HTML, wrapping any character that has a
+// non-default style (or is currently selected, via selectedSet) in its
+// own <span>/<mark> so per-character color/font/outline/bold/italic/
+// underline all show up. Shared by both the textarea overlay and the
+// "Will display as" preview so they always stay visually identical.
+function renderStyledHtml(text, selectedSet) {
+    let html = "";
+    let i = 0;
+    while (i < text.length) {
+        const style = getStyle(i);
+        const selected = selectedSet ? selectedSet.has(i) : false;
+        const styleKey = JSON.stringify(style) + "|" + selected;
+
+        let j = i;
+        let chunk = "";
+        while (j < text.length) {
+            const s = getStyle(j);
+            const sel = selectedSet ? selectedSet.has(j) : false;
+            if (JSON.stringify(s) + "|" + sel !== styleKey) break;
+            chunk += text[j];
+            j++;
+        }
+
+        const escaped = escapeHtml(chunk);
+        const classes = styleClasses(style);
+        const inlineCss = styleInlineCss(style);
+        const needsSpan = classes || inlineCss;
+
+        let piece = escaped;
+        if (needsSpan) {
+            piece = `<span${classes ? ` class="${classes}"` : ""}${inlineCss ? ` style="${inlineCss}"` : ""}>${escaped}</span>`;
+        }
+        if (selected) {
+            piece = `<mark>${piece}</mark>`;
+        }
+
+        html += piece;
+        i = j;
+    }
+    return html;
+}
+
 function showFullText() {
     displayLabel.textContent = "Will display as:";
-    displayName.textContent = lobbyTitle.value;
+    displayName.innerHTML = renderStyledHtml(lobbyTitle.value, null);
 }
 
 function showSelectionText() {
-    const text = selectedIndices.map(i => lobbyTitle.value[i]).join("");
     displayLabel.textContent = "Selecting:";
-    displayName.textContent = text;
+    const text = selectedIndices.map(i => lobbyTitle.value[i]).join("");
+    // Re-map styles onto the extracted substring positionally so the
+    // "Selecting: ..." preview also reflects each picked letter's look.
+    const substyles = selectedIndices.map(i => getStyle(i));
+    let html = "";
+    for (let k = 0; k < text.length; k++) {
+        const style = substyles[k];
+        const escaped = escapeHtml(text[k]);
+        const classes = styleClasses(style);
+        const inlineCss = styleInlineCss(style);
+        html += (classes || inlineCss)
+            ? `<span${classes ? ` class="${classes}"` : ""}${inlineCss ? ` style="${inlineCss}"` : ""}>${escaped}</span>`
+            : escaped;
+    }
+    displayName.innerHTML = html;
 }
 
 function clearSelection({ keepLock = false } = {}) {
@@ -63,39 +193,40 @@ function escapeHtml(str) {
 // Rebuilds the overlay's markup so every selected index is wrapped in a
 // <mark>, mirroring the textarea's text so highlights line up visually
 // even though a <textarea> can't natively show multiple selected ranges.
+// Also mirrors any per-character color/font/outline/bold/italic/underline
+// styling so the editor itself previews formatting live, not just the
+// "Will display as" box.
 function renderHighlights() {
     const text = lobbyTitle.value;
-    if (selectedIndices.length === 0) {
-        highlightOverlay.innerHTML = escapeHtml(text);
-        return;
-    }
-
     const selectedSet = new Set(selectedIndices);
-    let html = "";
-    let i = 0;
-    while (i < text.length) {
-        if (selectedSet.has(i)) {
-            let j = i;
-            let chunk = "";
-            while (j < text.length && selectedSet.has(j)) {
-                chunk += text[j];
-                j++;
-            }
-            html += `<mark>${escapeHtml(chunk)}</mark>`;
-            i = j;
-        } else {
-            html += escapeHtml(text[i]);
-            i++;
-        }
-    }
-    highlightOverlay.innerHTML = html;
+    highlightOverlay.innerHTML = renderStyledHtml(text, selectedSet);
 }
 
 function syncOverlayScroll() {
     highlightOverlay.scrollLeft = lobbyTitle.scrollLeft;
 }
 
+// Applies a partial style patch (e.g. { color: '#ff00ff' }) to every
+// currently-selected character, then re-renders both previews live. No-op
+// if nothing is selected, since there'd be nothing to apply the effect to.
+function applyStyleToSelection(patch) {
+    if (selectedIndices.length === 0) return false;
+    selectedIndices.forEach((i) => {
+        const style = ensureStyle(i);
+        Object.assign(style, patch);
+    });
+    renderHighlights();
+    if (selectionLocked) {
+        showSelectionText();
+    } else {
+        showFullText();
+    }
+    return true;
+}
+
 lobbyTitle.addEventListener("input", () => {
+    reconcileStylesWithEdit(lobbyTitle.value);
+    previousValue = lobbyTitle.value;
     refreshDisplayView();
     // Typing invalidates any previous selection.
     clearSelection();
@@ -248,6 +379,7 @@ lobbyTitle.addEventListener("blur", () => {
 });
 
 renderHighlights();
+showFullText();
 
 
 
@@ -347,7 +479,12 @@ const FONT_LIST = [
             fontList.querySelectorAll('.font-option[aria-pressed="true"]').forEach((other) => {
                 if (other !== btn) other.setAttribute('aria-pressed', 'false');
             });
-            btn.setAttribute('aria-pressed', String(!isOn));
+            const nowOn = !isOn;
+            btn.setAttribute('aria-pressed', String(nowOn));
+
+            // Apply (or clear) this font on every currently-selected
+            // character, live, in both the editor and the preview.
+            applyStyleToSelection({ font: nowOn ? font.previewFamily : null });
         });
 
         fontList.appendChild(btn);
@@ -506,6 +643,18 @@ document.addEventListener('DOMContentLoaded', () => {
             svCursor.style.left = (S*100)+'%';
             svCursor.style.top = ((1-V)*100)+'%';
             hueCursor.style.top = ((1 - (H/360))*100)+'%';
+
+            // Live-apply this color to whatever's currently selected in the
+            // lobby name editor. When "Text outline" is toggled on, the
+            // picker controls the outline color (and turns the outline on)
+            // instead of the fill color.
+            const outlineToggle = document.getElementById('outline-toggle');
+            const outlineMode = outlineToggle && outlineToggle.getAttribute('aria-pressed') === 'true';
+            if (outlineMode) {
+                applyStyleToSelection({ outline: true, outlineColor: hex });
+            } else {
+                applyStyleToSelection({ color: hex });
+            }
         }
 
         function setFromHex(hex){
@@ -618,29 +767,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (initial.startsWith('#')) setFromHex(initial);
     })();
 
-    // "Text outline" checkmark next to the color picker title. Purely an
-    // on/off UI state for now — no downstream behaviour depends on it yet.
+    // "Text outline" checkmark next to the color picker title. Switches
+    // whether the picker above controls the fill color or the outline
+    // color, and toggling it directly turns the outline effect on/off for
+    // whatever's currently selected in the lobby name editor.
     (function initOutlineToggle() {
         const toggle = document.getElementById('outline-toggle');
+        const colorHexInput = document.getElementById('color-hex-input');
         if (!toggle) return;
         toggle.addEventListener('click', () => {
             const isOn = toggle.getAttribute('aria-pressed') === 'true';
-            toggle.setAttribute('aria-pressed', String(!isOn));
+            const nowOn = !isOn;
+            toggle.setAttribute('aria-pressed', String(nowOn));
+
+            const currentHex = colorHexInput ? colorHexInput.value : null;
+            if (nowOn) {
+                applyStyleToSelection({ outline: true, outlineColor: currentHex });
+            } else {
+                applyStyleToSelection({ outline: false });
+            }
         });
     })();
 
-    // Style buttons (bold / italic / underline). For now this is just the
-    // visual on/off toggle for each button — no text transformation wired
-    // in yet, that's coming later.
+    // Style buttons (bold / italic / underline). Each one toggles its
+    // effect live on whatever's currently selected in the lobby name
+    // editor, mirrored in both the editor itself and the preview.
     (function initStyleButtons() {
         const boldBtn = document.getElementById('style-bold');
         const italicBtn = document.getElementById('style-italic');
         const underlineBtn = document.getElementById('style-underline');
-        [boldBtn, italicBtn, underlineBtn].forEach((btn) => {
+        const map = [
+            [boldBtn, 'bold'],
+            [italicBtn, 'italic'],
+            [underlineBtn, 'underline']
+        ];
+        map.forEach(([btn, prop]) => {
             if (!btn) return;
             btn.addEventListener('click', () => {
                 const isOn = btn.getAttribute('aria-pressed') === 'true';
-                btn.setAttribute('aria-pressed', String(!isOn));
+                const nowOn = !isOn;
+                btn.setAttribute('aria-pressed', String(nowOn));
+                applyStyleToSelection({ [prop]: nowOn });
             });
         });
     })();
