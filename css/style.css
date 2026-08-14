@@ -104,6 +104,14 @@ main {
     box-sizing: border-box;
     text-align: left;
     overflow: hidden;
+    /* Must match the textarea's actual layout mode. The textarea uses
+       wrap="off" (see index.html) -- the standards-based way to force a
+       single-line, horizontally-scrolling textarea, since a CSS-only
+       white-space override can leave the browser's internal scroll/caret
+       metrics still tied to the default "soft" wrap attribute even while
+       visual rendering follows the CSS, a split-brain state that
+       compounded worse with every re-render. With wrap="off" set, "pre"
+       here is the correct match: one unbroken line, no wrapping. */
     white-space: pre;
     pointer-events: none;
     z-index: 2;
@@ -147,6 +155,13 @@ main {
     box-shadow: none;
     font-size: 1.35rem;
     line-height: 1.3;
+    /* Paired with wrap="off" on the <textarea> in index.html -- together
+       these are the standards-based way to force a single-line,
+       horizontally-scrolling textarea. Declaring white-space: pre here
+       too keeps it explicit rather than relying only on the wrap
+       attribute's implicit default styling, which isn't identical across
+       browsers. */
+    white-space: pre;
     text-shadow: 0px 0px 0px;
     font-family: 'Courier New', Courier, monospace;
     position: relative;
