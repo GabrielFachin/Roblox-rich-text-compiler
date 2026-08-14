@@ -189,6 +189,21 @@ main {
     text-stroke-width: 0;
 }
 
+/* Scoped with the same #display-name/#editor-highlight-overlay prefix as
+   the reset rule above, on purpose: `.styled-char--outline` alone has
+   lower specificity (0,1,0) than that reset (1,1,0 — an ID beats a
+   class), so the reset always won regardless of source order and the
+   outline's stroke-width was permanently forced back to 0. This is why
+   toggling "Text outline" visually did nothing. Matching the ID prefix
+   here brings both rules to equal specificity, so normal cascade order
+   (this rule comes after) lets the outline width actually apply. */
+#display-name .styled-char--outline,
+#editor-highlight-overlay .styled-char--outline {
+    -webkit-text-stroke-width: 1.5px;
+    text-stroke-width: 1.5px;
+    paint-order: stroke fill;
+}
+
 .styled-char--outline {
     -webkit-text-stroke-width: 1.5px;
     text-stroke-width: 1.5px;
@@ -391,6 +406,19 @@ main {
     opacity: 1;
 }
 
+/* Mixed state: same "half-drawn checkmark" idea as the tri-state style
+   buttons — a dimmer, partial version of the "on" look rather than
+   either extreme, so it's visually obvious this isn't a plain off/on. */
+.outline-toggle.is-mixed .outline-toggle-box {
+    background: rgba(139, 92, 255, 0.4);
+    border-color: rgba(139, 92, 255, 0.7);
+}
+
+.outline-toggle.is-mixed .outline-toggle-check {
+    stroke-dashoffset: 0;
+    opacity: 0.55;
+}
+
 .outline-toggle-label {
     font-size: 0.72rem;
     letter-spacing: 0.02em;
@@ -440,6 +468,20 @@ main {
     cursor: pointer;
     box-shadow: 0 0 0 4px rgba(139, 92, 255, 0.06);
     /* background-color is set live from JS to mirror the picked color */
+}
+
+/* Shown instead of a solid fill when the current selection has more than
+   one distinct color (or a mix of "has a color" and "uses the default
+   look") — a checkerboard pattern is the conventional "N/A / mixed value"
+   indicator so it doesn't get mistaken for an actual picked color like a
+   plain gray would. Layered OVER the JS-set background-color via
+   background-image, so the underlying color isn't lost when toggled off. */
+.color-circle.is-mixed {
+    background-image:
+        linear-gradient(45deg, rgba(0,0,0,0.35) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.35) 75%),
+        linear-gradient(45deg, rgba(0,0,0,0.35) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.35) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
 }
 .color-hex-input {
     flex: 1 1 auto;
@@ -516,6 +558,23 @@ main {
     background-color: #8b5cff55;
     border-color: #8b5cff;
     box-shadow: 0 0 0 1px rgba(139, 92, 255, 0.8), 0 0 18px rgba(139, 92, 255, 0.55);
+}
+
+/* "Mixed" state: some selected characters have this style, some don't.
+   Visually distinct from both fully-off (plain) and fully-on (solid
+   purple fill above) — a lighter/duller version of the "on" look, per
+   the standard tri-state toggle pattern (Word/Docs use the same idea).
+   The FIRST click from here turns the style ON for every selected char,
+   see selectionStyleState()/applyStyleToSelection() in script.js.
+   Shared by .style-option (bold/italic/underline) and .font-option — both
+   use the same border+background "card" look, so one rule covers both
+   instead of duplicating it. */
+.style-option.is-mixed,
+.font-option.is-mixed {
+    background-color: #8b5cff26;
+    border-color: #8b5cff99;
+    box-shadow: none;
+    opacity: 0.7;
 }
 
 .style-option-letter {
