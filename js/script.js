@@ -396,14 +396,19 @@ function outlineInlineCss(style) {
     return (
         `-webkit-text-stroke-color:${rgba};` +
         `text-stroke-color:${rgba};` +
-        // The shadow layers use the opaque hex color, not the rgba
-        // above -- see outlineShadowLayers' comment. Opacity is applied
-        // once, to the base stroke color only, instead of to every
-        // overlapping shadow layer, so it fades the outline as a whole
-        // rather than making the overlaps compound into a darker smudge
-        // at less than 100%.
+        // The shadow layers now use the same rgba (with alpha) as the
+        // base stroke, not the opaque hex -- previously the opacity
+        // slider only faded the thin 0.6-1.2px base stroke while the
+        // shadow layers (which form most of the ring's visible width,
+        // see outlineShadowLayers' comment) stayed fully opaque, so the
+        // slider looked like it barely did anything. Adjacent shadow
+        // layers do overlap, so at low opacity the overlap seams can
+        // read very slightly darker than the rest of the ring, but a
+        // working, visibly-fading slider matters more than that minor
+        // unevenness -- and it's barely noticeable in practice since the
+        // layers are thin and mostly non-overlapping to begin with.
         `text-shadow:${outlineShadowLayers(
-            oc,
+            rgba,
             1.3,
             join
         )}`

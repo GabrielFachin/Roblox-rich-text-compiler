@@ -229,6 +229,7 @@ main {
    underline/strikethrough formatting applied via the side panels. */
 .styled-char {
     white-space: pre;
+    position: relative;
 }
 
 /* The outline's stroke + text-shadow layers live on this inner <i>
@@ -257,27 +258,46 @@ main {
     font-style: italic;
 }
 
-.styled-char--underline {
-    text-decoration: underline;
-    text-underline-offset: 2px;
+/* Underline and strikethrough are drawn as plain positioned bars
+   (::before / ::after) instead of native `text-decoration`. Native
+   text-decoration turned out not to be safe to combine with the
+   outline effect: browsers paint an ancestor's decoration line
+   "shadow-aware" of a nested descendant's text-shadow, so with outline
+   on, the outline's shadow layers (see .styled-char-outline-fx) bled
+   red/colored banding straight through the white strikethrough/
+   underline line, no matter which element in the tree actually owned
+   the text-decoration property. A plain background-color bar has no
+   such interaction -- text-shadow only paints text glyphs, never a
+   sibling's plain box background -- so these are now fully immune to
+   the outline regardless of nesting.
+   Strikethrough intentionally hardcodes white and ignores `color`
+   entirely (per design: it should never inherit anything from the
+   text). Underline uses `currentColor` so it follows only the text's
+   own fill color, with zero outline influence. Both live on the outer
+   .styled-char span (position: relative), never on the inner outline
+   wrapper, so they can never end up nested inside the shadow/stroke
+   layer no matter how the two features are combined. */
+.styled-char--underline::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1px;
+    height: 2px;
+    background: currentColor;
+    pointer-events: none;
 }
 
-.styled-char--strikethrough {
-    text-decoration: line-through;
-    text-decoration-color: rgb(254, 248, 255);
-    text-decoration-thickness: 1px;
-}
-
-/* A character can be both underlined and struck through at once --
-   text-decoration is a single property, so when both style flags are on,
-   this combined rule (higher specificity via two classes) sets both
-   decoration lines in one declaration instead of the second class
-   silently overwriting the first. */
-.styled-char--underline.styled-char--strikethrough {
-    text-decoration: underline line-through;
-    text-decoration-color: rgb(254, 248, 255);
-    text-decoration-thickness: 1px;
-    text-underline-offset: 2px;
+.styled-char--strikethrough::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 2px;
+    background: rgb(254, 248, 255);
+    transform: translateY(-50%);
+    pointer-events: none;
 }
 
 /*-------------Display--------------- */
@@ -403,71 +423,84 @@ main {
     padding: 6px;
 }
 
-/* Outline join popup: slides out from behind the color picker box when
-   text outline is active, like a "pull tab" -- same idea as the Style
-   panel's row of option buttons, just revealed by sliding out.
-   On desktop it opens HORIZONTALLY, sitting just above the color picker
-   box (`bottom: 100%`), so it never overlaps the textarea/editor even on
-   a short viewport. On narrow/mobile layouts (see the max-width: 1100px
-   block near the bottom of this file) the whole right-hand column
-   collapses to a static, stacked layout, so the popup switches to
-   opening vertically below its toggle instead, matching that stacked
-   flow rather than floating a horizontal bar above content. Sits behind
-   the picker (lower z-index, same stacking context as .color-panel-wrap)
-   and is revealed by translating it out from underneath -- see
-   .outline-join-popup--open. */
+/* Outline join popup: a floating panel that appears to the LEFT of the
+   color picker box when text outline is active -- same "box" visual
+   language as the Style panel (.box: same border/radius/background/
+   glow), not a custom half-tucked tab, so it reads as belonging to the
+   same UI system instead of a one-off control. It has its own header
+   label (matching .style-box-header/.style-box-label) and a row of
+   square option buttons styled exactly like .style-option, just with 3
+   columns instead of 4.
+   Positioned with a real gap (`margin-right`, positive) rather than a
+   negative margin tucking it under the color box, so it no longer
+   overlaps the color picker. Reveals via a right-anchored scaleX grow,
+   the same technique the Style panel itself uses to show/hide (see
+   .aside-bottom-right.menu-closed) for a consistent feel.
+   On narrow/mobile layouts (see the max-width: 1100px block near the
+   bottom of this file) the whole right-hand column collapses to a
+   static, stacked layout, so the popup switches to a plain stacked
+   list under its toggle instead of floating to the side. */
 .outline-join-popup {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 100%;
+    top: 0;
+    right: 100%;
+    bottom: auto;
+    left: auto;
     z-index: 1;
-    width: auto;
+    width: 190px;
     height: auto;
-    margin-bottom: -14px;
-    padding: 10px 10px 22px 10px;
+    margin-right: 16px;
+    padding: 1rem 1.2rem;
     display: flex;
     flex-direction: column;
+    gap: 0.7rem;
     border: 1px solid rgba(105, 35, 255, 0.8);
-    border-radius: 14px 14px 0 0;
+    border-radius: 14px;
     background: rgba(28, 6, 54, 0.9);
     box-shadow: 0 0 0 1px rgba(105, 35, 255, 0.8), 0 0 10px rgba(116, 24, 255, 0.7);
-    transform: translateY(24px);
+    transform-origin: right center;
+    transform: translateX(12px) scaleX(0.02);
     opacity: 0;
     pointer-events: none;
-    transition: transform 220ms cubic-bezier(.2, .9, .3, 1), opacity 180ms ease;
+    transition: transform 320ms cubic-bezier(.2, .9, .3, 1), opacity 220ms ease;
 }
 
 .outline-join-popup--open {
-    transform: translateY(0);
+    transform: translateX(0) scaleX(1);
     opacity: 1;
     pointer-events: auto;
 }
 
+.outline-join-header {
+    flex: 0 0 auto;
+    text-align: left;
+}
+
+.outline-join-label {
+    font-size: 1rem;
+}
+
 .outline-join-options {
     flex: 1 1 auto;
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
 }
 
 /* Each button is just a plain letter -- M / R / B, no live preview and
-   no full label -- kept simple and consistent with the site's other
-   compact option buttons (see .style-option). The purple border/glow
-   match the site's own accent color so it reads as "belongs here"
-   rather than a generic control. */
+   no full label -- matches .style-option exactly (same border/
+   background/hover/pressed treatment) so it looks like it belongs to
+   the same button family as Bold/Italic/Underline/Strikethrough. */
 .outline-join-option {
-    flex: 1 1 0;
+    width: 100%;
     aspect-ratio: 1 / 1;
-    max-width: 52px;
-    max-height: 52px;
+    max-height: 56px;
     padding: 0;
     margin: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2.5px solid #8b5cff;
+    border: 2.5px solid #2f0b69;
     border-radius: 13px;
     background-color: #4a0d8336;
     cursor: pointer;
@@ -475,7 +508,7 @@ main {
 }
 
 .outline-join-option:hover {
-    box-shadow: 0 0 0 1px rgba(139, 92, 255, 0.733), 0 0 25px rgba(139, 92, 255, 0.63);
+    box-shadow: 0 0 0 1px rgba(115, 12, 233, 0.733), 0 0 25px rgba(115, 59, 219, 0.63);
 }
 
 .outline-join-option[aria-pressed="true"] {
@@ -484,22 +517,19 @@ main {
     box-shadow: 0 0 0 1px rgba(139, 92, 255, 0.8), 0 0 18px rgba(139, 92, 255, 0.55);
 }
 
-/* White letter with a simple purple outline (using the same
-   -webkit-text-stroke technique as the real text outline, just fixed to
-   the site's accent purple) -- a placeholder abbreviation rather than a
-   live effect preview, matching the site's neon/purple look. */
+/* Plain letter, no stroke/glow -- matches .style-option-letter exactly.
+   The earlier heavy 1.2px stroke + 6px glow (and before that, the serif
+   font) were what made R and B hard to tell apart at this size, since
+   they filled in the exact details (R's diagonal leg, B's two bumps)
+   that distinguish the letterforms. Dropping the decoration entirely,
+   the same way the B/I/U/S letters already do, fixes legibility and
+   keeps the visual language consistent across both button rows. */
 .outline-join-letter {
     font-size: clamp(1.3rem, 3vw, 1.6rem);
     line-height: 1;
     font-weight: 700;
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'Fredoka', 'Nunito', sans-serif;
     color: rgb(254, 248, 255);
-    -webkit-text-stroke-width: 1.2px;
-    -webkit-text-stroke-color: #8b5cff;
-    text-stroke-width: 1.2px;
-    text-stroke-color: #8b5cff;
-    text-shadow: 0 0 6px rgba(139, 92, 255, 0.85);
-    paint-order: stroke fill;
 }
 
 @media (max-width: 1100px) {
@@ -507,7 +537,9 @@ main {
         position: static;
         left: auto;
         right: auto;
+        top: auto;
         bottom: auto;
+        width: 100%;
         margin: 0;
         padding: 10px;
         border-radius: 14px;
