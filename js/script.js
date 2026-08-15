@@ -144,7 +144,7 @@ function reconcileStylesWithEdit(newValue) {
         oldSuffix > prefix &&
         newSuffix > prefix &&
         oldValue[oldSuffix - 1] ===
-            newValue[newSuffix - 1]
+        newValue[newSuffix - 1]
     ) {
         oldSuffix--;
         newSuffix--;
@@ -254,6 +254,16 @@ function styleInlineCss(style) {
         );
     }
 
+    if (
+        typeof style.opacity ===
+        "number" &&
+        style.opacity < 1
+    ) {
+        rules.push(
+            `opacity:${style.opacity}`
+        );
+    }
+
     return rules.join(";");
 }
 
@@ -290,8 +300,8 @@ function renderStyledHtml(
 
             if (
                 JSON.stringify(s) +
-                    "|" +
-                    sel !==
+                "|" +
+                sel !==
                 styleKey
             ) {
                 break;
@@ -318,15 +328,13 @@ function renderStyledHtml(
         if (needsSpan) {
             piece =
                 `<span` +
-                `${
-                    classes
-                        ? ` class="${classes}"`
-                        : ""
+                `${classes
+                    ? ` class="${classes}"`
+                    : ""
                 }` +
-                `${
-                    inlineCss
-                        ? ` style="${inlineCss}"`
-                        : ""
+                `${inlineCss
+                    ? ` style="${inlineCss}"`
+                    : ""
                 }>` +
                 `${escaped}` +
                 `</span>`;
@@ -348,6 +356,14 @@ function showFullText() {
     displayLabel.textContent =
         "Will display as:";
 
+    displayLabel.classList.remove(
+        "preview-text--flat"
+    );
+
+    displayName.classList.remove(
+        "preview-text--flat"
+    );
+
     displayName.innerHTML =
         renderStyledHtml(
             lobbyTitle.value,
@@ -358,6 +374,14 @@ function showFullText() {
 function showSelectionText() {
     displayLabel.textContent =
         "Selecting:";
+
+    displayLabel.classList.add(
+        "preview-text--flat"
+    );
+
+    displayName.classList.add(
+        "preview-text--flat"
+    );
 
     const text =
         selectedIndices
@@ -391,17 +415,15 @@ function showSelectionText() {
         html +=
             classes || inlineCss
                 ? `<span` +
-                  `${
-                      classes
-                          ? ` class="${classes}"`
-                          : ""
-                  }` +
-                  `${
-                      inlineCss
-                          ? ` style="${inlineCss}"`
-                          : ""
-                  }>` +
-                  `${escaped}</span>`
+                `${classes
+                    ? ` class="${classes}"`
+                    : ""
+                }` +
+                `${inlineCss
+                    ? ` style="${inlineCss}"`
+                    : ""
+                }>` +
+                `${escaped}</span>`
                 : escaped;
     }
 
@@ -469,6 +491,80 @@ function escapeHtml(str) {
         );
 }
 
+// Renders the invisible textarea's overlay. Unlike renderStyledHtml (used
+// by the "Will display as"/"Selecting" preview, which is meant to show
+// each character at its true, proportional width), this wraps every
+// character in its own fixed-width "cell" sized to exactly 1ch of the
+// textarea's own monospace font. That guarantees the overlay's total
+// rendered width always matches the real (invisible) textarea's width
+// character-for-character, no matter what font/weight/style is applied
+// to the glyph inside -- which is what keeps the caret, click hit-testing,
+// and selection highlighting aligned with what's visually shown, and keeps
+// differently-sized fonts from bleeding into neighboring characters.
+function renderOverlayHtml(
+    text,
+    selectedSet
+) {
+    let html = "";
+
+    for (
+        let i = 0;
+        i < text.length;
+        i++
+    ) {
+        const ch = text[i];
+
+        const style =
+            getStyle(i);
+
+        const selected =
+            selectedSet
+                ? selectedSet.has(i)
+                : false;
+
+        const escaped =
+            escapeHtml(
+                ch === "\n"
+                    ? " "
+                    : ch
+            );
+
+        const classes =
+            styleClasses(style);
+
+        const inlineCss =
+            styleInlineCss(style);
+
+        const inner =
+            classes || inlineCss
+                ? `<span` +
+                `${classes
+                    ? ` class="${classes}"`
+                    : ""
+                }` +
+                `${inlineCss
+                    ? ` style="${inlineCss}"`
+                    : ""
+                }>` +
+                `${escaped}</span>`
+                : escaped;
+
+        const cellClasses =
+            "editor-cell" +
+            (
+                selected
+                    ? " editor-cell--selected"
+                    : ""
+            );
+
+        html +=
+            `<span class="${cellClasses}" data-char-index="${i}">` +
+            `${inner}</span>`;
+    }
+
+    return html;
+}
+
 function renderHighlights() {
     const text =
         lobbyTitle.value;
@@ -477,7 +573,7 @@ function renderHighlights() {
         new Set(selectedIndices);
 
     highlightOverlay.innerHTML =
-        renderStyledHtml(
+        renderOverlayHtml(
             text,
             selectedSet
         );
@@ -693,9 +789,9 @@ lobbyTitle.addEventListener(
     e => {
         if (
             e.inputType ===
-                "historyUndo" ||
+            "historyUndo" ||
             e.inputType ===
-                "historyRedo"
+            "historyRedo"
         ) {
             e.preventDefault();
         }
@@ -779,12 +875,18 @@ document.addEventListener(
             ctrlHeld = true;
         }
 
+        // Ctrl+Q clears the current selection. Deliberately checked via
+        // e.ctrlKey (not metaKey), so on Mac this is the physical Control
+        // key rather than Cmd -- Cmd+Q quits the browser there, so binding
+        // to Ctrl instead avoids fighting that. It's not bound to anything
+        // in Chrome/Firefox/Edge on any platform, and works no matter
+        // whether the textarea is focused or not.
         if (
-            (e.key === "r" ||
-                e.key === "R") &&
-            document.activeElement !==
-                lobbyTitle
+            e.ctrlKey &&
+            (e.key === "q" ||
+                e.key === "Q")
         ) {
+            e.preventDefault();
             clearSelection();
         }
 
@@ -849,70 +951,56 @@ function charIndexFromVisualPoint(
         return 0;
     }
 
-    const walker =
-        document.createTreeWalker(
-            highlightOverlay,
-            NodeFilter.SHOW_TEXT
+    // Each character now renders inside its own fixed-width
+    // "editor-cell" (see renderOverlayHtml), so hit-testing can use
+    // that cell's own box directly instead of walking text nodes --
+    // this is what the click position actually lines up with visually,
+    // and it doesn't get thrown off by a character's font/weight
+    // rendering wider or narrower than its cell.
+    const cells =
+        highlightOverlay.querySelectorAll(
+            "[data-char-index]"
         );
 
-    let index = 0;
-    let node;
+    if (!cells.length) {
+        return text.length;
+    }
 
-    while (
-        (node = walker.nextNode())
-    ) {
-        const value =
-            node.nodeValue || "";
+    for (const cell of cells) {
+        const rect =
+            cell.getBoundingClientRect();
 
-        for (
-            let offset = 0;
-            offset < value.length;
-            offset++
+        if (
+            clientY < rect.top ||
+            clientY > rect.bottom
         ) {
-            const range =
-                document.createRange();
-
-            range.setStart(
-                node,
-                offset
-            );
-
-            range.setEnd(
-                node,
-                offset + 1
-            );
-
-            const rects =
-                range.getClientRects();
-
-            if (!rects.length) {
-                continue;
-            }
-
-            const rect =
-                rects[0];
-
-            if (
-                clientY >= rect.top &&
-                clientY <= rect.bottom
-            ) {
-                const midpoint =
-                    rect.left +
-                    rect.width / 2;
-
-                if (
-                    clientX <= midpoint ||
-                    clientX <= rect.right
-                ) {
-                    return (
-                        index +
-                        offset
-                    );
-                }
-            }
+            continue;
         }
 
-        index += value.length;
+        const index = Number(
+            cell.getAttribute(
+                "data-char-index"
+            )
+        );
+
+        const midpoint =
+            rect.left +
+            rect.width / 2;
+
+        if (clientX <= midpoint) {
+            return index;
+        }
+
+        if (clientX <= rect.right) {
+            return index + 1;
+        }
+    }
+
+    const firstRect =
+        cells[0].getBoundingClientRect();
+
+    if (clientX <= firstRect.left) {
+        return 0;
     }
 
     return text.length;
@@ -1447,7 +1535,7 @@ const FONT_LIST = [
             () => {
                 const isOn =
                     selectedIndices.length >
-                        0 &&
+                    0 &&
                     selectedIndices.every(
                         i => {
                             const s =
@@ -1457,7 +1545,7 @@ const FONT_LIST = [
                                 s &&
                                 s.font &&
                                 s.font.asset ===
-                                    font.asset
+                                font.asset
                             );
                         }
                     );
@@ -1628,7 +1716,7 @@ document.addEventListener(
                     "menu-closed"
                 ) &&
                 panel.style.display ===
-                    "none"
+                "none"
             ) {
                 return;
             }
@@ -1674,7 +1762,7 @@ document.addEventListener(
                 if (
                     e.target === panel &&
                     e.propertyName ===
-                        "transform"
+                    "transform"
                 ) {
                     tidy();
                 }
@@ -1824,6 +1912,16 @@ document.addEventListener(
                     "color-circle"
                 );
 
+            const colorOpacityInput =
+                document.getElementById(
+                    "color-opacity-input"
+                );
+
+            const colorOpacityValue =
+                document.getElementById(
+                    "color-opacity-value"
+                );
+
             const topBox =
                 document.querySelector(
                     ".aside-top-right"
@@ -1860,8 +1958,8 @@ document.addEventListener(
                         1 -
                         Math.abs(
                             (h / 60) %
-                                2 -
-                                1
+                            2 -
+                            1
                         )
                     );
 
@@ -1912,15 +2010,15 @@ document.addEventListener(
                 return [
                     Math.round(
                         (r + m) *
-                            255
+                        255
                     ),
                     Math.round(
                         (g + m) *
-                            255
+                        255
                     ),
                     Math.round(
                         (b + m) *
-                            255
+                        255
                     )
                 ];
             }
@@ -1995,18 +2093,18 @@ document.addEventListener(
                 ) {
                     h =
                         60 *
-                            (
-                                (b - r) /
-                                d
-                            ) +
+                        (
+                            (b - r) /
+                            d
+                        ) +
                         120;
                 } else {
                     h =
                         60 *
-                            (
-                                (r - g) /
-                                d
-                            ) +
+                        (
+                            (r - g) /
+                            d
+                        ) +
                         240;
                 }
 
@@ -2085,7 +2183,7 @@ document.addEventListener(
 
                 svCursor.style.top =
                     (1 - V) *
-                        100 +
+                    100 +
                     "%";
 
                 hueCursor.style.top =
@@ -2093,7 +2191,7 @@ document.addEventListener(
                         1 -
                         H / 360
                     ) *
-                        100 +
+                    100 +
                     "%";
 
                 if (
@@ -2199,8 +2297,46 @@ document.addEventListener(
                         false
                     );
 
+                    setOpacityUI(1);
+
                     return;
                 }
+
+                // Opacity is synced independently of color/outline mode
+                // and doesn't share the "mixed" early-return below, so a
+                // selection with mixed colors still shows an accurate
+                // opacity reading (falling back to 100% when the
+                // selection itself has mixed opacity values).
+                const opacities =
+                    selectedIndices.map(
+                        i => {
+                            const s =
+                                getStyle(
+                                    i
+                                );
+
+                            return (
+                                s &&
+                                    typeof s.opacity ===
+                                    "number"
+                                    ? s.opacity
+                                    : 1
+                            );
+                        }
+                    );
+
+                const opacityAllSame =
+                    opacities.every(
+                        o =>
+                            o ===
+                            opacities[0]
+                    );
+
+                setOpacityUI(
+                    opacityAllSame
+                        ? opacities[0]
+                        : 1
+                );
 
                 const outlineMode =
                     outlineEditMode;
@@ -2296,13 +2432,13 @@ document.addEventListener(
                 const clientX =
                     e.touches
                         ? e.touches[0]
-                              .clientX
+                            .clientX
                         : e.clientX;
 
                 const clientY =
                     e.touches
                         ? e.touches[0]
-                              .clientY
+                            .clientY
                         : e.clientY;
 
                 let x =
@@ -2435,7 +2571,7 @@ document.addEventListener(
                 const clientY =
                     e.touches
                         ? e.touches[0]
-                              .clientY
+                            .clientY
                         : e.clientY;
 
                 let y =
@@ -2619,6 +2755,81 @@ document.addEventListener(
                 return true;
             }
 
+            function setOpacityUI(
+                o
+            ) {
+                const pct =
+                    Math.round(
+                        o * 100
+                    );
+
+                if (
+                    colorOpacityInput
+                ) {
+                    colorOpacityInput.value =
+                        pct;
+                }
+
+                if (
+                    colorOpacityValue
+                ) {
+                    colorOpacityValue.textContent =
+                        pct + "%";
+                }
+            }
+
+            function applyOpacity(
+                o,
+                commit = true
+            ) {
+                const clamped =
+                    Math.max(
+                        0,
+                        Math.min(
+                            1,
+                            o
+                        )
+                    );
+
+                setOpacityUI(
+                    clamped
+                );
+
+                applyStyleToSelection(
+                    {
+                        opacity:
+                            clamped
+                    },
+                    commit
+                );
+            }
+
+            if (colorOpacityInput) {
+                colorOpacityInput.addEventListener(
+                    "input",
+                    () => {
+                        applyOpacity(
+                            Number(
+                                colorOpacityInput.value
+                            ) / 100,
+                            false
+                        );
+                    }
+                );
+
+                colorOpacityInput.addEventListener(
+                    "change",
+                    () => {
+                        applyOpacity(
+                            Number(
+                                colorOpacityInput.value
+                            ) / 100,
+                            true
+                        );
+                    }
+                );
+            }
+
             if (colorHexInput) {
                 colorHexInput.addEventListener(
                     "input",
@@ -2711,7 +2922,7 @@ document.addEventListener(
 
             const initial =
                 colorHexInput &&
-                colorHexInput.value
+                    colorHexInput.value
                     ? colorHexInput.value.trim()
                     : "";
 
