@@ -356,19 +356,23 @@ function showFullText() {
     displayLabel.textContent =
         "Will display as:";
 
-    displayLabel.classList.remove(
+    // For now, "Will display as" shows the plain, unstyled text -- no
+    // per-character font/color/bold/italic/outline effects, just the
+    // default grey preview color -- and uses the same flat (no glow)
+    // look as the "Selecting:" preview below it. This is intentional:
+    // there are separate plans for what this preview should show later,
+    // so it's deliberately kept plain rather than mirroring the actual
+    // per-character styling for now.
+    displayLabel.classList.add(
         "preview-text--flat"
     );
 
-    displayName.classList.remove(
+    displayName.classList.add(
         "preview-text--flat"
     );
 
-    displayName.innerHTML =
-        renderStyledHtml(
-            lobbyTitle.value,
-            null
-        );
+    displayName.textContent =
+        lobbyTitle.value;
 }
 
 function showSelectionText() {
@@ -491,9 +495,9 @@ function escapeHtml(str) {
         );
 }
 
-// Renders the invisible textarea's overlay. Unlike renderStyledHtml (used
-// by the "Will display as"/"Selecting" preview, which is meant to show
-// each character at its true, proportional width), this wraps every
+// Renders the invisible textarea's overlay. Unlike renderStyledHtml (kept
+// around for later use -- the "Will display as" preview intentionally
+// shows plain text for now, see showFullText()), this wraps every
 // character in its own fixed-width "cell" sized to exactly 1ch of the
 // textarea's own monospace font. That guarantees the overlay's total
 // rendered width always matches the real (invisible) textarea's width

@@ -139,7 +139,15 @@ main {
     font-family: 'Courier New', Courier, monospace;
     width: 1ch;
     text-align: center;
-    overflow: hidden;
+    /* Was overflow:hidden, which clipped any font wider than 1ch of
+       Courier New (Bangers, Luckiest Guy, Amatic SC, etc.) -- a per-glyph
+       scaleX() fix was tried but still ended up cutting letters, so this
+       reverts to the simpler approach: let a wide glyph overflow its cell
+       visually rather than get sliced. The cell's own box (used for
+       caret/click hit-testing) stays locked to 1ch either way, so a wide
+       glyph may visually lean into its neighbor's space, but it stays
+       legible instead of being cut in half. */
+    overflow: visible;
     white-space: pre;
     vertical-align: baseline;
 }
