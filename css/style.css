@@ -309,12 +309,29 @@ main {
    own fill color, with zero outline influence. Both live on the outer
    .styled-char span (position: relative), never on the inner outline
    wrapper, so they can never end up nested inside the shadow/stroke
-   layer no matter how the two features are combined. */
+   layer no matter how the two features are combined.
+
+   left/right extend 3px past the character's own box instead of
+   sitting flush at 0/100%. In the editor overlay, every character is
+   its own separate .editor-cell (needed to keep caret/click hit-testing
+   aligned -- see that rule's comment), so each char's underline/
+   strikethrough bar is a physically separate element from its
+   neighbor's. Flush 0/100% edges left a visible gap between consecutive
+   letters (each bar only as wide as its own glyph's cell) instead of
+   one continuous line. Overlapping 3px into the neighboring cell on
+   each side closes that gap -- adjacent styled characters' bars now
+   meet/overlap in the middle instead of leaving a seam -- while a
+   character styled on its own still reads as a normal short bar, since
+   3px is small relative to the cell width. -3px is applied unconditionally
+   (not just when a neighbor is also styled) to keep this rule simple;
+   the harmless side effect is a couple of extra px of bar bleeding into
+   an unstyled neighbor's cell when only one side of a run is styled,
+   which is not visually noticeable at this stroke height. */
 .styled-char--underline::before {
     content: "";
     position: absolute;
-    left: 0;
-    right: 0;
+    left: -3px;
+    right: -3px;
     bottom: 1px;
     height: 2px;
     background: currentColor;
@@ -324,8 +341,8 @@ main {
 .styled-char--strikethrough::after {
     content: "";
     position: absolute;
-    left: 0;
-    right: 0;
+    left: -3px;
+    right: -3px;
     top: 50%;
     height: 2px;
     /* Was a hardcoded off-white -- now follows the character's own fill
