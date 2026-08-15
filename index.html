@@ -18,12 +18,10 @@
     <div class="wrapper">
         <aside class="aside aside-left" aria-label="Left sidebar placeholder"></aside>
         <main>
-            <header class="page-header">
-            </header>
             <section class="first-section">
                 <div class="text-editor-container">
 
-                    <h1 class="text-editor-title">Name your lobby.</h1>
+                    <h1 class="text-editor-title">Name your lobby.<button type="button" class="how-to-use" id="how-to-use-trigger" aria-haspopup="dialog" aria-controls="how-to-use-modal" aria-label="How to use">?</button></h1>
                     <div class="text-editor-wrap">
                         <div id="editor-highlight-overlay" class="text-editor-highlight-overlay" aria-hidden="true">
                         </div>
@@ -57,7 +55,7 @@
                 </div>
             </section>
             <footer class="page-footer">
-                <p>Created by GabyDev! (AKA dogezineo/foxybryt)</p>
+                <p>Created by <a href="https://github.com/OnlyGabyDev" class="redirect-link">GabyDev!</a>(AKA <a href="https://www.roblox.com/users/114553410/profile" class="redirect-link">dogezineo/foxybryt)</a></p>
             </footer>
         </main>
         <aside class="aside">
@@ -158,6 +156,25 @@
                 </div>
             </div>
         </aside>
+    </div>
+
+    <div class="modal-overlay" id="how-to-use-modal" aria-hidden="true">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="how-to-use-modal-title">
+            <button type="button" class="modal-close" id="how-to-use-modal-close" aria-label="Close">&times;</button>
+            <h2 id="how-to-use-modal-title" class="modal-title">How to use</h2>
+            <div class="modal-content">
+                <p>Type your lobby name in the text area</p>
+                <p>Edit with different colors, fonts and styles!</p>
+                <p>click <strong>Copy</strong> to copy your nullscape-ready lobby name</p>
+                <p>Paste it!</p>
+
+            <h2 id="how-to-use-modal-title" class="modal-title">Shortcuts</h2>
+                <p>simply click on a letter to select it</p>
+                <p>hold <strong>CTRL</strong> and click to select multiple different letters at a time</p>
+                <p>press <strong>CTRL+Q</strong> to deselect selected letters</p>
+                <p>press <strong>SHIFT+Arrow keys</strong> to select adjacent letters</p>
+            </div>
+        </div>
     </div>
 </body>
 

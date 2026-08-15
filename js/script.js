@@ -3623,3 +3623,59 @@ document.addEventListener(
         })();
     }
 );
+// ---------------------------------------------------------------------
+// "How to use" modal
+// ---------------------------------------------------------------------
+(function initHowToUseModal() {
+    const trigger = document.getElementById("how-to-use-trigger");
+    const modal = document.getElementById("how-to-use-modal");
+    const closeBtn = document.getElementById("how-to-use-modal-close");
+
+    if (!trigger || !modal) {
+        return;
+    }
+
+    function openModal() {
+        // Force a reflow before adding the class so the browser always
+        // registers the transition (otherwise a rapid open right after
+        // a close, or one triggered synchronously on click, can get
+        // coalesced with the previous style and skip/stutter the
+        // animation instead of playing it smoothly).
+        modal.getBoundingClientRect();
+
+        requestAnimationFrame(() => {
+            modal.classList.add("modal-open");
+            modal.setAttribute("aria-hidden", "false");
+        });
+    }
+
+    function closeModal() {
+        modal.classList.remove("modal-open");
+        modal.setAttribute("aria-hidden", "true");
+    }
+
+    trigger.addEventListener("click", openModal);
+
+    trigger.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openModal();
+        }
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener("click", closeModal);
+    }
+
+    modal.addEventListener("click", e => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && modal.classList.contains("modal-open")) {
+            closeModal();
+        }
+    });
+})();
