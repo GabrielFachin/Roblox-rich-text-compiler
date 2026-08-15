@@ -226,35 +226,26 @@ main {
 /*-------------Styled character spans--------------- */
 /* Used both by the textarea's highlight overlay and by the "Will display
    as" preview to render per-character color/outline/font/bold/italic/
-   underline formatting applied via the side panels. */
+   underline/strikethrough formatting applied via the side panels. */
 .styled-char {
     white-space: pre;
 }
 
-#display-name .styled-char,
-#editor-highlight-overlay .styled-char {
-    -webkit-text-stroke-width: 0;
-    text-stroke-width: 0;
-}
-
-/* Scoped with the same #display-name/#editor-highlight-overlay prefix as
-   the reset rule above, on purpose: `.styled-char--outline` alone has
-   lower specificity (0,1,0) than that reset (1,1,0 — an ID beats a
-   class), so the reset always won regardless of source order and the
-   outline's stroke-width was permanently forced back to 0. This is why
-   toggling "Text outline" visually did nothing. Matching the ID prefix
-   here brings both rules to equal specificity, so normal cascade order
-   (this rule comes after) lets the outline width actually apply. */
-#display-name .styled-char--outline,
-#editor-highlight-overlay .styled-char--outline {
-    -webkit-text-stroke-width: 1.5px;
-    text-stroke-width: 1.5px;
-    paint-order: stroke fill;
-}
-
-.styled-char--outline {
-    -webkit-text-stroke-width: 1.5px;
-    text-stroke-width: 1.5px;
+/* The outline's stroke + text-shadow layers live on this inner <i>
+   wrapper (see renderStyledSpan/outlineInlineCss in script.js), one
+   level deeper than the outer .styled-char span that carries
+   underline/strikethrough. text-shadow paints across an element's whole
+   text-decoration box, not just its glyphs -- keeping it on this
+   separate inner element is what stops the outline's shadow from
+   smearing across the underline/strikethrough line when both are active
+   on the same character. Resets to inherited font styling (no italic/
+   bold/underline of its own) since those live on the outer span. */
+.styled-char-outline-fx {
+    font-style: inherit;
+    font-weight: inherit;
+    text-decoration: none;
+    -webkit-text-stroke-width: 0.6px;
+    text-stroke-width: 0.6px;
     paint-order: stroke fill;
 }
 
@@ -268,6 +259,24 @@ main {
 
 .styled-char--underline {
     text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.styled-char--strikethrough {
+    text-decoration: line-through;
+    text-decoration-color: rgb(254, 248, 255);
+    text-decoration-thickness: 1px;
+}
+
+/* A character can be both underlined and struck through at once --
+   text-decoration is a single property, so when both style flags are on,
+   this combined rule (higher specificity via two classes) sets both
+   decoration lines in one declaration instead of the second class
+   silently overwriting the first. */
+.styled-char--underline.styled-char--strikethrough {
+    text-decoration: underline line-through;
+    text-decoration-color: rgb(254, 248, 255);
+    text-decoration-thickness: 1px;
     text-underline-offset: 2px;
 }
 
@@ -379,6 +388,7 @@ main {
     --box-h: 380px;
     /* preferred height of the picker box itself */
 
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -391,7 +401,143 @@ main {
     min-height: 120px;
     height: var(--box-h);
     padding: 6px;
+}
 
+/* Outline join popup: slides out from behind the color picker box when
+   text outline is active, like a "pull tab" -- same idea as the Style
+   panel's row of option buttons, just revealed by sliding out.
+   On desktop it opens HORIZONTALLY, sitting just above the color picker
+   box (`bottom: 100%`), so it never overlaps the textarea/editor even on
+   a short viewport. On narrow/mobile layouts (see the max-width: 1100px
+   block near the bottom of this file) the whole right-hand column
+   collapses to a static, stacked layout, so the popup switches to
+   opening vertically below its toggle instead, matching that stacked
+   flow rather than floating a horizontal bar above content. Sits behind
+   the picker (lower z-index, same stacking context as .color-panel-wrap)
+   and is revealed by translating it out from underneath -- see
+   .outline-join-popup--open. */
+.outline-join-popup {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    z-index: 1;
+    width: auto;
+    height: auto;
+    margin-bottom: -14px;
+    padding: 10px 10px 22px 10px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(105, 35, 255, 0.8);
+    border-radius: 14px 14px 0 0;
+    background: rgba(28, 6, 54, 0.9);
+    box-shadow: 0 0 0 1px rgba(105, 35, 255, 0.8), 0 0 10px rgba(116, 24, 255, 0.7);
+    transform: translateY(24px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 220ms cubic-bezier(.2, .9, .3, 1), opacity 180ms ease;
+}
+
+.outline-join-popup--open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.outline-join-options {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Each button is just a plain letter -- M / R / B, no live preview and
+   no full label -- kept simple and consistent with the site's other
+   compact option buttons (see .style-option). The purple border/glow
+   match the site's own accent color so it reads as "belongs here"
+   rather than a generic control. */
+.outline-join-option {
+    flex: 1 1 0;
+    aspect-ratio: 1 / 1;
+    max-width: 52px;
+    max-height: 52px;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2.5px solid #8b5cff;
+    border-radius: 13px;
+    background-color: #4a0d8336;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.outline-join-option:hover {
+    box-shadow: 0 0 0 1px rgba(139, 92, 255, 0.733), 0 0 25px rgba(139, 92, 255, 0.63);
+}
+
+.outline-join-option[aria-pressed="true"] {
+    background-color: #8b5cff55;
+    border-color: #8b5cff;
+    box-shadow: 0 0 0 1px rgba(139, 92, 255, 0.8), 0 0 18px rgba(139, 92, 255, 0.55);
+}
+
+/* White letter with a simple purple outline (using the same
+   -webkit-text-stroke technique as the real text outline, just fixed to
+   the site's accent purple) -- a placeholder abbreviation rather than a
+   live effect preview, matching the site's neon/purple look. */
+.outline-join-letter {
+    font-size: clamp(1.3rem, 3vw, 1.6rem);
+    line-height: 1;
+    font-weight: 700;
+    font-family: 'Times New Roman', Times, serif;
+    color: rgb(254, 248, 255);
+    -webkit-text-stroke-width: 1.2px;
+    -webkit-text-stroke-color: #8b5cff;
+    text-stroke-width: 1.2px;
+    text-stroke-color: #8b5cff;
+    text-shadow: 0 0 6px rgba(139, 92, 255, 0.85);
+    paint-order: stroke fill;
+}
+
+@media (max-width: 1100px) {
+    .outline-join-popup {
+        position: static;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        margin: 0;
+        padding: 10px;
+        border-radius: 14px;
+        transform: none !important;
+        transition: none !important;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 1;
+        border-width: 0;
+        box-shadow: none;
+    }
+
+    .outline-join-popup--open {
+        max-height: 200px;
+        padding: 10px;
+        border-width: 1px;
+        margin-top: 10px;
+        box-shadow: 0 0 0 1px rgba(105, 35, 255, 0.8), 0 0 10px rgba(116, 24, 255, 0.7);
+    }
+
+    .outline-join-options {
+        flex-direction: column;
+    }
+
+    .outline-join-option {
+        max-width: none;
+        max-height: none;
+        aspect-ratio: auto;
+        height: 52px;
+    }
 }
 
 /* Custom color picker styles */
@@ -709,7 +855,7 @@ main {
 
 .style-options {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
 }
 
@@ -773,6 +919,10 @@ main {
 .style-option-letter--underline {
     text-decoration: underline;
     text-underline-offset: 4px;
+}
+
+.style-option-letter--strikethrough {
+    text-decoration: line-through;
 }
 
 .aside-left-full {

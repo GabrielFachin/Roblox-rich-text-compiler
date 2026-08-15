@@ -63,6 +63,22 @@
         <aside class="aside">
             <div class="aside-right">
                 <div class="color-panel-wrap" id="color-panel-wrap">
+                    <div class="outline-join-popup" id="outline-join-popup" aria-hidden="true">
+                        <div class="outline-join-options" id="outline-join-options">
+                            <button type="button" class="outline-join-option" id="join-miter" data-join="miter"
+                                aria-pressed="false" title="Miter join">
+                                <span class="outline-join-letter">M</span>
+                            </button>
+                            <button type="button" class="outline-join-option" id="join-round" data-join="round"
+                                aria-pressed="false" title="Round join">
+                                <span class="outline-join-letter">R</span>
+                            </button>
+                            <button type="button" class="outline-join-option" id="join-bevel" data-join="bevel"
+                                aria-pressed="false" title="Bevel join">
+                                <span class="outline-join-letter">B</span>
+                            </button>
+                        </div>
+                    </div>
                     <div class="box aside-top-right">
                         <div class="color-header">
                             <span class="color-label">Color picker</span>
@@ -100,7 +116,7 @@
                             aria-label="Hex color input" spellcheck="false" autocomplete="off">
                     </div>
                     <div class="color-opacity-row">
-                        <label class="color-opacity-label" for="color-opacity-input">Opacity</label>
+                        <label class="color-opacity-label" for="color-opacity-input" id="color-opacity-label">Opacity</label>
                         <input id="color-opacity-input" class="color-opacity-slider" type="range" min="0" max="100"
                             step="1" value="100" aria-label="Text opacity">
                         <span id="color-opacity-value" class="color-opacity-value">100%</span>
@@ -123,6 +139,11 @@
                             <button type="button" class="style-option" id="style-underline" data-style="underline"
                                 aria-pressed="false" title="Underline">
                                 <span class="style-option-letter style-option-letter--underline">U</span>
+                            </button>
+
+                            <button type="button" class="style-option" id="style-strikethrough"
+                                data-style="strikethrough" aria-pressed="false" title="Strikethrough">
+                                <span class="style-option-letter style-option-letter--strikethrough">S</span>
                             </button>
                         </div>
                     </div>

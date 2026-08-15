@@ -197,12 +197,6 @@ function styleClasses(style) {
         "styled-char"
     ];
 
-    if (style.outline) {
-        classes.push(
-            "styled-char--outline"
-        );
-    }
-
     if (style.bold) {
         classes.push(
             "styled-char--bold"
@@ -221,7 +215,116 @@ function styleClasses(style) {
         );
     }
 
+    if (style.strikethrough) {
+        classes.push(
+            "styled-char--strikethrough"
+        );
+    }
+
     return classes.join(" ");
+}
+
+// Converts a #rrggbb hex color plus a 0-1 alpha into an rgba() string.
+// Used to apply the outline's own opacity to its color only, instead of
+// the CSS `opacity` property, which would fade the whole character
+// (fill + stroke) rather than just the stroke.
+function hexToRgba(hex, alpha) {
+    const v =
+        (hex || "#000000").replace(
+            "#",
+            ""
+        );
+
+    const r =
+        parseInt(v.slice(0, 2), 16) ||
+        0;
+
+    const g =
+        parseInt(v.slice(2, 4), 16) ||
+        0;
+
+    const b =
+        parseInt(v.slice(4, 6), 16) ||
+        0;
+
+    return (
+        `rgba(${r},${g},${b},` +
+        `${alpha})`
+    );
+}
+
+// -webkit-text-stroke always renders a smooth (round-jointed) outline --
+// there's no CSS property that controls the corner style of a text
+// stroke. To offer a rough miter/round/bevel feel like a real vector
+// stroke, the outline is built out of a handful of text-shadow layers
+// (each one a "copy" of the glyph nudged in a different direction).
+//
+// Two things that made earlier attempts look like a blurry smudge
+// instead of a crisp outline, both fixed here:
+//   1. Using 8 semi-transparent layers stacks that transparency on top
+//      of itself every time two layers overlap, so the "outline" got
+//      progressively darker/muddier toward the glyph edge instead of
+//      reading as one clean line. Layers are drawn fully opaque now (the
+//      color's own opacity is applied once, on the whole stroke, via the
+//      -webkit-text-stroke-color instead) so overlapping layers merge
+//      into flat, solid color rather than compounding.
+//   2. Combining an 8-direction shadow ring with a separate full-width
+//      -webkit-text-stroke underneath doubled up the same coverage,
+//      thickening and softening the edge further. The stroke is now only
+//      the thin base fill (no gaps between shadow layers); the shadows
+//      define the actual visible width and corner shape.
+//   - round:  4 cardinal offsets only -> soft, minimal-overlap outline
+//   - bevel:  4 cardinal + 4 diagonal offsets pulled inward -> corners
+//             read as slightly "cut off" rather than rounded
+//   - miter:  4 cardinal + 4 diagonal offsets pushed further out ->
+//             corners come to a visibly sharper point
+function outlineShadowLayers(
+    color,
+    width,
+    join
+) {
+    const w = width;
+
+    const cardinal = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1]
+    ];
+
+    const diagonal = [
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1]
+    ];
+
+    let dirs = cardinal;
+    let diagDist = w;
+
+    if (join === "miter") {
+        dirs = cardinal.concat(diagonal);
+        diagDist = w * 1.1;
+    } else if (join === "bevel") {
+        dirs = cardinal.concat(diagonal);
+        diagDist = w * 0.55;
+    }
+
+    return dirs
+        .map(([dx, dy]) => {
+            const isDiagonal =
+                dx !== 0 && dy !== 0;
+
+            const dist = isDiagonal
+                ? diagDist
+                : w;
+
+            const x = (dx * dist).toFixed(2);
+            const y = (dy * dist).toFixed(2);
+
+            return `${x}px ${y}px 0 ${color}`;
+        })
+        .join(",");
 }
 
 function styleInlineCss(style) {
@@ -243,17 +346,6 @@ function styleInlineCss(style) {
         );
     }
 
-    if (style.outline) {
-        const oc =
-            style.outlineColor ||
-            "#000000";
-
-        rules.push(
-            `-webkit-text-stroke-color:${oc}`,
-            `text-stroke-color:${oc}`
-        );
-    }
-
     if (
         typeof style.opacity ===
         "number" &&
@@ -265,6 +357,113 @@ function styleInlineCss(style) {
     }
 
     return rules.join(";");
+}
+
+// Outline (stroke + its text-shadow layers) is deliberately kept OUT of
+// styleInlineCss and applied on its own inner wrapper instead -- see
+// renderStyledSpan. text-shadow paints across an element's entire text
+// decoration box, not just its glyphs, so a single span carrying both
+// text-shadow (for the outline) and text-decoration (for underline/
+// strikethrough) ends up with the outline's shadow smeared across the
+// underline/strikethrough line too. Nesting the outline's shadow one
+// level deeper than the decoration keeps the strikethrough/underline a
+// clean, undistorted line regardless of whether outline is also on.
+function outlineInlineCss(style) {
+    if (!style || !style.outline) {
+        return "";
+    }
+
+    const oc =
+        style.outlineColor ||
+        "#000000";
+
+    const outlineOpacity =
+        typeof style.outlineOpacity ===
+            "number"
+            ? style.outlineOpacity
+            : 1;
+
+    const join =
+        style.outlineJoin ||
+        "round";
+
+    const rgba =
+        hexToRgba(
+            oc,
+            outlineOpacity
+        );
+
+    return (
+        `-webkit-text-stroke-color:${rgba};` +
+        `text-stroke-color:${rgba};` +
+        // The shadow layers use the opaque hex color, not the rgba
+        // above -- see outlineShadowLayers' comment. Opacity is applied
+        // once, to the base stroke color only, instead of to every
+        // overlapping shadow layer, so it fades the outline as a whole
+        // rather than making the overlaps compound into a darker smudge
+        // at less than 100%.
+        `text-shadow:${outlineShadowLayers(
+            oc,
+            1.3,
+            join
+        )}`
+    );
+}
+
+// Builds the actual <span>...</span> (or plain text, if nothing needs
+// styling) for one already-escaped chunk of text under a given style.
+// Centralizes the classes/inlineCss/outline-wrapping logic that used to
+// be duplicated across renderStyledHtml, showSelectionText, and
+// renderOverlayHtml.
+//
+// When outline is on, the outline's stroke/shadow go on an inner <i>
+// wrapper, one level deeper than the outer span's classes (bold/italic/
+// underline/strikethrough) and color/opacity -- see outlineInlineCss's
+// comment for why they can't share one element. Without outline, this
+// collapses back to the single flat <span> it always was.
+function renderStyledSpan(
+    escaped,
+    style
+) {
+    const classes =
+        styleClasses(style);
+
+    const inlineCss =
+        styleInlineCss(style);
+
+    const outlineCss =
+        outlineInlineCss(style);
+
+    const hasOutline =
+        !!outlineCss;
+
+    const needsSpan =
+        classes ||
+        inlineCss ||
+        hasOutline;
+
+    if (!needsSpan) {
+        return escaped;
+    }
+
+    const innerContent =
+        hasOutline
+            ? `<i class="styled-char-outline-fx" style="${outlineCss}">${escaped}</i>`
+            : escaped;
+
+    return (
+        `<span` +
+        `${classes
+            ? ` class="${classes}"`
+            : ""
+        }` +
+        `${inlineCss
+            ? ` style="${inlineCss}"`
+            : ""
+        }>` +
+        `${innerContent}` +
+        `</span>`
+    );
 }
 
 function renderStyledHtml(
@@ -314,31 +513,11 @@ function renderStyledHtml(
         const escaped =
             escapeHtml(chunk);
 
-        const classes =
-            styleClasses(style);
-
-        const inlineCss =
-            styleInlineCss(style);
-
-        const needsSpan =
-            classes || inlineCss;
-
-        let piece = escaped;
-
-        if (needsSpan) {
-            piece =
-                `<span` +
-                `${classes
-                    ? ` class="${classes}"`
-                    : ""
-                }` +
-                `${inlineCss
-                    ? ` style="${inlineCss}"`
-                    : ""
-                }>` +
-                `${escaped}` +
-                `</span>`;
-        }
+        let piece =
+            renderStyledSpan(
+                escaped,
+                style
+            );
 
         if (selected) {
             piece =
@@ -410,25 +589,11 @@ function showSelectionText() {
         const escaped =
             escapeHtml(text[k]);
 
-        const classes =
-            styleClasses(style);
-
-        const inlineCss =
-            styleInlineCss(style);
-
         html +=
-            classes || inlineCss
-                ? `<span` +
-                `${classes
-                    ? ` class="${classes}"`
-                    : ""
-                }` +
-                `${inlineCss
-                    ? ` style="${inlineCss}"`
-                    : ""
-                }>` +
-                `${escaped}</span>`
-                : escaped;
+            renderStyledSpan(
+                escaped,
+                style
+            );
     }
 
     displayName.innerHTML = html;
@@ -533,25 +698,11 @@ function renderOverlayHtml(
                     : ch
             );
 
-        const classes =
-            styleClasses(style);
-
-        const inlineCss =
-            styleInlineCss(style);
-
         const inner =
-            classes || inlineCss
-                ? `<span` +
-                `${classes
-                    ? ` class="${classes}"`
-                    : ""
-                }` +
-                `${inlineCss
-                    ? ` style="${inlineCss}"`
-                    : ""
-                }>` +
-                `${escaped}</span>`
-                : escaped;
+            renderStyledSpan(
+                escaped,
+                style
+            );
 
         const cellClasses =
             "editor-cell" +
@@ -718,6 +869,11 @@ function syncToolbarWithSelection() {
             "style-underline"
         );
 
+    const strikethroughBtn =
+        document.getElementById(
+            "style-strikethrough"
+        );
+
     const outlineToggle =
         document.getElementById(
             "outline-toggle"
@@ -741,6 +897,13 @@ function syncToolbarWithSelection() {
         underlineBtn,
         selectionStyleState(
             "underline"
+        )
+    );
+
+    setButtonTriState(
+        strikethroughBtn,
+        selectionStyleState(
+            "strikethrough"
         )
     );
 
@@ -2293,6 +2456,9 @@ document.addEventListener(
             }
 
             function syncColorPickerFromSelection() {
+                const outlineMode =
+                    outlineEditMode;
+
                 if (
                     selectedIndices.length ===
                     0
@@ -2306,11 +2472,20 @@ document.addEventListener(
                     return;
                 }
 
-                // Opacity is synced independently of color/outline mode
-                // and doesn't share the "mixed" early-return below, so a
-                // selection with mixed colors still shows an accurate
-                // opacity reading (falling back to 100% when the
-                // selection itself has mixed opacity values).
+                // Opacity is synced independently of the color/outline
+                // "mixed" check below, so a selection with mixed colors
+                // still shows an accurate opacity reading (falling back
+                // to 100% when the selection itself has mixed opacity
+                // values). Which property is read -- outlineOpacity vs
+                // opacity -- follows outlineEditMode, so the slider always
+                // reflects and edits the opacity of whichever layer
+                // (outline stroke or text fill) is currently selected via
+                // the "Text outline" toggle, never both at once.
+                const opacityProp =
+                    outlineMode
+                        ? "outlineOpacity"
+                        : "opacity";
+
                 const opacities =
                     selectedIndices.map(
                         i => {
@@ -2321,9 +2496,13 @@ document.addEventListener(
 
                             return (
                                 s &&
-                                    typeof s.opacity ===
+                                    typeof s[
+                                        opacityProp
+                                    ] ===
                                     "number"
-                                    ? s.opacity
+                                    ? s[
+                                        opacityProp
+                                    ]
                                     : 1
                             );
                         }
@@ -2341,9 +2520,6 @@ document.addEventListener(
                         ? opacities[0]
                         : 1
                 );
-
-                const outlineMode =
-                    outlineEditMode;
 
                 const prop =
                     outlineMode
@@ -2759,9 +2935,37 @@ document.addEventListener(
                 return true;
             }
 
+            const colorOpacityLabel =
+                document.getElementById(
+                    "color-opacity-label"
+                );
+
+            // Keeps the slider's own label truthful about which layer it
+            // currently controls -- "Opacity" for the text fill, "Outline
+            // opacity" while the "Text outline" toggle is on -- since the
+            // same slider is reused for both rather than showing two.
+            function syncOpacityLabel() {
+                if (!colorOpacityLabel) {
+                    return;
+                }
+
+                colorOpacityLabel.textContent =
+                    outlineEditMode
+                        ? "Outline opacity"
+                        : "Opacity";
+            }
+
+            onSelectionSync(
+                syncOpacityLabel
+            );
+
+            syncOpacityLabel();
+
             function setOpacityUI(
                 o
             ) {
+                syncOpacityLabel();
+
                 const pct =
                     Math.round(
                         o * 100
@@ -2799,11 +3003,34 @@ document.addEventListener(
                     clamped
                 );
 
+                // Which property gets written follows outlineEditMode, the
+                // same switch the color picker itself uses (color vs
+                // outlineColor) -- so with "Text outline" on, the slider
+                // fades only the stroke (outlineOpacity), leaving the
+                // text's own fill opacity untouched, and vice versa.
+                const opacityProp =
+                    outlineEditMode
+                        ? "outlineOpacity"
+                        : "opacity";
+
+                const patch = {
+                    [opacityProp]:
+                        clamped
+                };
+
+                // Dragging the opacity slider while "Text outline" is on,
+                // before any outline color has actually been picked yet,
+                // must still turn outline rendering on for the selection
+                // -- otherwise outlineInlineCss finds style.outline unset
+                // and skips the stroke/shadow entirely, so the opacity
+                // change has nothing visible to apply to and looks like
+                // the slider "does nothing".
+                if (outlineEditMode) {
+                    patch.outline = true;
+                }
+
                 applyStyleToSelection(
-                    {
-                        opacity:
-                            clamped
-                    },
+                    patch,
                     commit
                 );
             }
@@ -2947,8 +3174,31 @@ document.addEventListener(
                     "outline-toggle"
                 );
 
+            const joinPopup =
+                document.getElementById(
+                    "outline-join-popup"
+                );
+
             if (!toggle) {
                 return;
+            }
+
+            function syncPopupVisibility() {
+                if (!joinPopup) {
+                    return;
+                }
+
+                joinPopup.classList.toggle(
+                    "outline-join-popup--open",
+                    outlineEditMode
+                );
+
+                joinPopup.setAttribute(
+                    "aria-hidden",
+                    outlineEditMode
+                        ? "false"
+                        : "true"
+                );
             }
 
             toggle.setAttribute(
@@ -2957,6 +3207,8 @@ document.addEventListener(
                     ? "true"
                     : "false"
             );
+
+            syncPopupVisibility();
 
             toggle.addEventListener(
                 "click",
@@ -2975,9 +3227,104 @@ document.addEventListener(
                         "is-mixed"
                     );
 
+                    syncPopupVisibility();
+
                     syncToolbarWithSelection();
                 }
             );
+
+            // Keep the popup's own open/closed state correct whenever the
+            // selection changes elsewhere (e.g. outlineEditMode getting
+            // reset), since syncToolbarWithSelection doesn't know about
+            // this popup directly.
+            onSelectionSync(
+                syncPopupVisibility
+            );
+        })();
+
+        (function initOutlineJoinPopup() {
+            const options =
+                document.querySelectorAll(
+                    ".outline-join-option"
+                );
+
+            if (!options.length) {
+                return;
+            }
+
+            function currentJoinState() {
+                if (
+                    selectedIndices.length ===
+                    0
+                ) {
+                    return "round";
+                }
+
+                const joins =
+                    selectedIndices.map(
+                        i => {
+                            const s =
+                                getStyle(i);
+
+                            return (
+                                (s &&
+                                    s.outlineJoin) ||
+                                "round"
+                            );
+                        }
+                    );
+
+                const allSame =
+                    joins.every(
+                        j =>
+                            j === joins[0]
+                    );
+
+                return allSame
+                    ? joins[0]
+                    : null;
+            }
+
+            function syncJoinButtons() {
+                const active =
+                    currentJoinState();
+
+                options.forEach(btn => {
+                    btn.setAttribute(
+                        "aria-pressed",
+                        active !== null &&
+                            btn.dataset
+                                .join ===
+                            active
+                            ? "true"
+                            : "false"
+                    );
+                });
+            }
+
+            options.forEach(btn => {
+                btn.addEventListener(
+                    "click",
+                    () => {
+                        applyStyleToSelection(
+                            {
+                                outlineJoin:
+                                    btn
+                                        .dataset
+                                        .join
+                            }
+                        );
+
+                        syncJoinButtons();
+                    }
+                );
+            });
+
+            onSelectionSync(
+                syncJoinButtons
+            );
+
+            syncJoinButtons();
         })();
 
         (function initStyleButtons() {
@@ -2996,6 +3343,11 @@ document.addEventListener(
                     "style-underline"
                 );
 
+            const strikethroughBtn =
+                document.getElementById(
+                    "style-strikethrough"
+                );
+
             const map = [
                 [
                     boldBtn,
@@ -3008,6 +3360,10 @@ document.addEventListener(
                 [
                     underlineBtn,
                     "underline"
+                ],
+                [
+                    strikethroughBtn,
+                    "strikethrough"
                 ]
             ];
 
