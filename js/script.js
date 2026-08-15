@@ -47,7 +47,7 @@ function scheduleTagPreview() {
         }
 
         displayLabel.textContent =
-            "Will display as: (rich text tags)";
+            "Will display as: ";
 
         displayName.classList.add(
             "preview-text--code"
