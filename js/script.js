@@ -11,6 +11,56 @@ let selectionLocked = false;
 let outlineEditMode = false;
 let charStyles = [];
 
+// Debounce for swapping the "Will display as" preview over to the raw
+// Roblox rich text tags. Recomputing/showing the tags on every single
+// keystroke or style tweak would be noisy to read while actively
+// editing, so the tag view only kicks in once the lobby name has gone
+// quiet (no text or style changes) for TAG_PREVIEW_DELAY_MS.
+const TAG_PREVIEW_DELAY_MS = 3000;
+let tagPreviewTimer = null;
+
+function clearTagPreviewTimer() {
+    if (tagPreviewTimer) {
+        clearTimeout(tagPreviewTimer);
+        tagPreviewTimer = null;
+    }
+}
+
+// Schedules the swap to the tag view. Called every time the plain
+// "Will display as" text is (re)shown, so any subsequent edit or style
+// change -- which calls showFullText() again -- pushes the timer back
+// out, and the tags only actually appear once things have been idle.
+function scheduleTagPreview() {
+    clearTagPreviewTimer();
+
+    if (lobbyTitle.value === "") {
+        return;
+    }
+
+    tagPreviewTimer = setTimeout(() => {
+        tagPreviewTimer = null;
+
+        // A locked selection means the preview area is currently showing
+        // "Selecting:" instead of "Will display as:" -- don't stomp on it.
+        if (selectionLocked) {
+            return;
+        }
+
+        displayLabel.textContent =
+            "Will display as: (rich text tags)";
+
+        displayName.classList.add(
+            "preview-text--code"
+        );
+
+        displayName.textContent =
+            generateRichText(
+                lobbyTitle.value,
+                charStyles
+            );
+    }, TAG_PREVIEW_DELAY_MS);
+}
+
 const MAX_HISTORY = 200;
 let styleHistory = [];
 let historyIndex = -1;
@@ -555,11 +605,22 @@ function showFullText() {
         "preview-text--flat"
     );
 
+    displayName.classList.remove(
+        "preview-text--code"
+    );
+
     displayName.textContent =
         lobbyTitle.value;
+
+    scheduleTagPreview();
 }
 
 function showSelectionText() {
+    // Selecting text swaps this whole area over to a live selection
+    // preview -- cancel any pending tag-view swap so it can't fire mid
+    // selection and overwrite it.
+    clearTagPreviewTimer();
+
     displayLabel.textContent =
         "Selecting:";
 
@@ -569,6 +630,10 @@ function showSelectionText() {
 
     displayName.classList.add(
         "preview-text--flat"
+    );
+
+    displayName.classList.remove(
+        "preview-text--code"
     );
 
     const text =
@@ -663,6 +728,236 @@ function escapeHtml(str) {
             />/g,
             "&gt;"
         );
+}
+
+// ---------------------------------------------------------------------
+// Roblox rich text tag generation
+// ---------------------------------------------------------------------
+//
+// Roblox's rich text tags are proper XML-like nesting: a tag opened
+// later must close earlier ("last opened, first closed"), and there's
+// no such thing as two tags that partially overlap. Naively wrapping
+// every single character in its own set of tags would technically be
+// valid but would spam a tag pair per letter, and re-opening a brand
+// new <font> for every attribute (face, then color, then transparency,
+// like the hand-written example) triples the tag count for no reason --
+// Roblox lets a single <font> tag carry face/color/transparency all at
+// once, and a single <stroke> tag carry color/transparency/joins.
+//
+// So each character's formatting collapses down to a small ordered
+// "stack" of at most 6 layers:
+//   0. <font face=".." color=".." transparency="..">  (combined)
+//   1. <stroke color=".." transparency=".." joins="..">  (combined)
+//   2. <b>
+//   3. <i>
+//   4. <u>
+//   5. <s>
+//
+// Walking the string left to right, each character's desired stack is
+// compared against whatever is currently open. Layers are compared by
+// position: the first index where the two stacks differ is found, then
+// only the layers from that point on get closed (innermost-first, so
+// closing order is always valid) and reopened. Layers that are
+// identical between two neighboring characters -- e.g. a whole word
+// sharing one <font color> while only <b> toggles partway through --
+// stay open the entire time instead of being re-emitted per character.
+function roundTransparency(n) {
+    // Guards against float noise (1 - 0.7 = 0.29999999999999993) turning
+    // into an ugly, overly-precise attribute value.
+    return Math.round(n * 1000) / 1000;
+}
+
+function escapeRichText(str) {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+}
+
+// Builds the fixed-position, 6-slot layer array described above for one
+// character's style. A slot is `null` when that layer isn't active for
+// this character; otherwise it's `{ key, open, close }`, where `key` is
+// a cheap string used purely to detect "did this layer change between
+// neighboring characters" without re-serializing the whole style object.
+function richLayersForStyle(style) {
+    const layers = [
+        null, null, null, null, null, null
+    ];
+
+    if (!style) {
+        return layers;
+    }
+
+    // Layer 0: combined <font> (face / color / transparency)
+    //
+    // NOTE: Roblox's <font face="..."> attribute takes the font's display
+    // NAME (e.g. "Michroma"), not its rbxasset:// path -- that path goes
+    // in the separate <font family="..."> attribute instead. FONT_LIST
+    // entries already carry the display name in `.name`, so that's what
+    // gets used here.
+    const face =
+        style.font ? style.font.name : null;
+
+    const color = style.color || null;
+
+    const hasFade =
+        typeof style.opacity === "number" &&
+        style.opacity < 1;
+
+    const transparency =
+        hasFade
+            ? roundTransparency(1 - style.opacity)
+            : null;
+
+    if (face || color || transparency !== null) {
+        const attrs = [];
+
+        if (face) {
+            attrs.push(
+                `face="${escapeRichText(face)}"`
+            );
+        }
+
+        if (color) {
+            attrs.push(
+                `color="${escapeRichText(color)}"`
+            );
+        }
+
+        if (transparency !== null) {
+            attrs.push(
+                `transparency="${transparency}"`
+            );
+        }
+
+        layers[0] = {
+            key: `font|${face || ""}|${color || ""}|${transparency === null ? "" : transparency}`,
+            open: `<font ${attrs.join(" ")}>`,
+            close: "</font>"
+        };
+    }
+
+    // Layer 1: combined <stroke> (color / transparency / joins)
+    if (style.outline) {
+        const outlineColor =
+            style.outlineColor || "#000000";
+
+        const outlineHasFade =
+            typeof style.outlineOpacity === "number" &&
+            style.outlineOpacity < 1;
+
+        const outlineTransparency =
+            outlineHasFade
+                ? roundTransparency(1 - style.outlineOpacity)
+                : null;
+
+        // "round" is Roblox's own default join, so it's left out of the
+        // tag entirely when it matches the default -- one less attribute
+        // to emit for the common case.
+        const join =
+            style.outlineJoin &&
+                style.outlineJoin !== "round"
+                ? style.outlineJoin
+                : null;
+
+        const attrs = [
+            `color="${escapeRichText(outlineColor)}"`
+        ];
+
+        if (outlineTransparency !== null) {
+            attrs.push(
+                `transparency="${outlineTransparency}"`
+            );
+        }
+
+        if (join) {
+            attrs.push(`joins="${join}"`);
+        }
+
+        layers[1] = {
+            key: `stroke|${outlineColor}|${outlineTransparency === null ? "" : outlineTransparency}|${join || ""}`,
+            open: `<stroke ${attrs.join(" ")}>`,
+            close: "</stroke>"
+        };
+    }
+
+    if (style.bold) {
+        layers[2] = { key: "b", open: "<b>", close: "</b>" };
+    }
+
+    if (style.italic) {
+        layers[3] = { key: "i", open: "<i>", close: "</i>" };
+    }
+
+    if (style.underline) {
+        layers[4] = { key: "u", open: "<u>", close: "</u>" };
+    }
+
+    if (style.strikethrough) {
+        layers[5] = { key: "s", open: "<s>", close: "</s>" };
+    }
+
+    return layers;
+}
+
+// Turns the full lobby name + its per-character styles into a single
+// Roblox rich text string, using the stack-diffing approach described
+// above so runs of identically-styled characters share one set of tags.
+function generateRichText(text, styles) {
+    let output = "";
+
+    let current = [
+        null, null, null, null, null, null
+    ];
+
+    for (let i = 0; i < text.length; i++) {
+        const desired = richLayersForStyle(
+            styles[i] || null
+        );
+
+        let diffAt = current.length;
+
+        for (let idx = 0; idx < current.length; idx++) {
+            const a = current[idx] ? current[idx].key : null;
+            const b = desired[idx] ? desired[idx].key : null;
+
+            if (a !== b) {
+                diffAt = idx;
+                break;
+            }
+        }
+
+        if (diffAt < current.length) {
+            // Close from the innermost open layer down to the point of
+            // divergence -- this is always valid nesting order since
+            // layers were opened outer-to-inner (index 0 to 5).
+            for (let idx = current.length - 1; idx >= diffAt; idx--) {
+                if (current[idx]) {
+                    output += current[idx].close;
+                }
+            }
+
+            for (let idx = diffAt; idx < desired.length; idx++) {
+                if (desired[idx]) {
+                    output += desired[idx].open;
+                }
+            }
+
+            current = desired;
+        }
+
+        output += escapeRichText(text[i]);
+    }
+
+    for (let idx = current.length - 1; idx >= 0; idx--) {
+        if (current[idx]) {
+            output += current[idx].close;
+        }
+    }
+
+    return output;
 }
 
 // Renders the invisible textarea's overlay. Unlike renderStyledHtml (kept
@@ -1324,8 +1619,15 @@ syncToolbarWithSelection();
 copyButton.addEventListener(
     "click",
     () => {
+        // Copy always computes the tags fresh on click rather than
+        // relying on the debounced "Will display as" tag preview, so it
+        // never copies something stale (or nothing, if the 3s idle
+        // window hasn't elapsed yet).
         const textToCopy =
-            lobbyTitle.value;
+            generateRichText(
+                lobbyTitle.value,
+                charStyles
+            );
 
         if (textToCopy) {
             navigator.clipboard
@@ -1352,13 +1654,6 @@ copyButton.addEventListener(
 
 const FONT_LIST = [
     {
-        name: "Accanthis ADF Std",
-        asset:
-            "rbxasset://fonts/families/AccanthisADFStd.json",
-        previewFamily:
-            "'Times New Roman', Times, serif"
-    },
-    {
         name: "Amatic SC",
         asset:
             "rbxasset://fonts/families/AmaticSC.json",
@@ -1373,13 +1668,6 @@ const FONT_LIST = [
             "'Arimo', sans-serif"
     },
     {
-        name: "Balthazar",
-        asset:
-            "rbxasset://fonts/families/Balthazar.json",
-        previewFamily:
-            "'Balthazar', serif"
-    },
-    {
         name: "Bangers",
         asset:
             "rbxasset://fonts/families/Bangers.json",
@@ -1387,32 +1675,11 @@ const FONT_LIST = [
             "'Bangers', cursive"
     },
     {
-        name: "Builder Extended",
-        asset:
-            "rbxasset://fonts/families/BuilderExtended.json",
-        previewFamily:
-            "'Oswald', sans-serif"
-    },
-    {
-        name: "Builder Mono",
-        asset:
-            "rbxasset://fonts/families/BuilderMono.json",
-        previewFamily:
-            "'Roboto Mono', monospace"
-    },
-    {
         name: "Builder Sans",
         asset:
             "rbxasset://fonts/families/BuilderSans.json",
         previewFamily:
             "'Arimo', sans-serif"
-    },
-    {
-        name: "Comic Neue Angular",
-        asset:
-            "rbxasset://fonts/families/ComicNeueAngular.json",
-        previewFamily:
-            "'Comic Neue', cursive"
     },
     {
         name: "Creepster",
@@ -1448,27 +1715,6 @@ const FONT_LIST = [
             "rbxasset://fonts/families/GrenzeGotisch.json",
         previewFamily:
             "'Grenze Gotisch', serif"
-    },
-    {
-        name: "Guru",
-        asset:
-            "rbxasset://fonts/families/Guru.json",
-        previewFamily:
-            "'Nunito', sans-serif"
-    },
-    {
-        name: "Highway Gothic",
-        asset:
-            "rbxasset://fonts/families/HighwayGothic.json",
-        previewFamily:
-            "'Roboto Condensed', sans-serif"
-    },
-    {
-        name: "Inconsolata",
-        asset:
-            "rbxasset://fonts/families/Inconsolata.json",
-        previewFamily:
-            "'Inconsolata', monospace"
     },
     {
         name: "Indie Flower",
@@ -1555,13 +1801,6 @@ const FONT_LIST = [
             "'Permanent Marker', cursive"
     },
     {
-        name: "Press Start 2P",
-        asset:
-            "rbxasset://fonts/families/PressStart2P.json",
-        previewFamily:
-            "'Press Start 2P', monospace"
-    },
-    {
         name: "Roboto",
         asset:
             "rbxasset://fonts/families/Roboto.json",
@@ -1583,25 +1822,11 @@ const FONT_LIST = [
             "'Roboto Mono', monospace"
     },
     {
-        name: "Roman Antique",
-        asset:
-            "rbxasset://fonts/families/RomanAntique.json",
-        previewFamily:
-            "'Times New Roman', Times, serif"
-    },
-    {
         name: "Sarpanch",
         asset:
             "rbxasset://fonts/families/Sarpanch.json",
         previewFamily:
             "'Sarpanch', sans-serif"
-    },
-    {
-        name: "Source Sans Pro",
-        asset:
-            "rbxasset://fonts/families/SourceSansPro.json",
-        previewFamily:
-            "'Source Sans 3', sans-serif"
     },
     {
         name: "Special Elite",
@@ -1623,13 +1848,6 @@ const FONT_LIST = [
             "rbxasset://fonts/families/Ubuntu.json",
         previewFamily:
             "'Ubuntu', sans-serif"
-    },
-    {
-        name: "Zekton",
-        asset:
-            "rbxasset://fonts/families/Zekton.json",
-        previewFamily:
-            "'Michroma', sans-serif"
     }
 ];
 

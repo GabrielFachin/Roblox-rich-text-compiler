@@ -238,6 +238,19 @@ main {
     text-shadow: 0px 0px 0px;
 }
 
+/* Applied to #display-name once the 3s idle debounce (see
+   scheduleTagPreview in script.js) swaps "Will display as" over from
+   plain text to the literal Roblox rich text tags, so the raw markup
+   reads clearly as copyable code rather than as the styled result. */
+.preview-text--code {
+    font-family: 'Roboto Mono', 'Inconsolata', monospace;
+    font-size: 1rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: rgb(170, 170, 170);
+}
+
 /*-------------Styled character spans--------------- */
 /* Used both by the textarea's highlight overlay and by the "Will display
    as" preview to render per-character color/outline/font/bold/italic/
