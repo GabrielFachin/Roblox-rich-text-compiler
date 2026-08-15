@@ -798,7 +798,7 @@ function richLayersForStyle(style) {
     // entries already carry the display name in `.name`, so that's what
     // gets used here.
     const face =
-        style.font ? style.font.name : null;
+        style.font ? style.font.name.replace(/\s+/g, "") : null;
 
     const color = style.color || null;
 
